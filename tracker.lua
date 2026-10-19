@@ -30,7 +30,7 @@ local COMPLETE = { .6, 1, .1 }
 local GRIP_IDLE = .35             -- the handle's opacity when the mouse isn't on it
 local REFRESH = .5                -- default seconds between distance and arrow updates (setting: tracker.refresh)
 local RESORT_AFTER = 2            -- a new nearest-first order must hold this long before rows move
-local SORTS = { { "near", "Nearest" }, { "zone", "Zone" }, { "level", "Level" }, { "log", "Log" } }
+local SORTS = { { "zone", "Zone" }, { "level", "Level" }, { "log", "Log" }, { "near", "Nearest" } }
 
 local f, rows, hiddenLine
 local order, pendingOrder, pendingSince = {}, nil, nil
