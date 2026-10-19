@@ -94,6 +94,7 @@ local function addTarget(list, target, spec)
           area = area, x = p[1], y = p[2], icon = spec.icon, quest = spec.quest, layer = spec.layer, size = spec.size,
           cluster = spec.cluster, compass = spec.compass, title = name, tooltip = spec.tooltip,
           objective = spec.objective, onShiftClick = hideQuestPin, shiftHint = "Shift-click: hide this quest on the map",
+          overlapKey = spec.overlapKey,
         }
       end
     end
@@ -117,7 +118,7 @@ local function buildQuest(questId)
     local complete = m.complete == true
     for _, target in ipairs(m.turnins) do
       addTarget(turnins, target, { icon = complete and "question" or "questionGrey", quest = questId, layer = 5, size = 16,
-        compass = complete and ("t" .. questId) or nil, tooltip = turninTooltip(questId) })
+        compass = complete and ("t" .. questId) or nil, tooltip = turninTooltip(questId), overlapKey = "t" .. questId })
     end
   end
   Pins.objectives[questId] = #objectives > 0 and objectives or nil
@@ -201,12 +202,18 @@ function Pins:RebuildAvailable()
       local record = NorgannonDB:Get(g.target.kind, g.target.id)
       local name = CV.Model.TargetName(g.target)
       local tooltip = availableTooltip(g.entries)
+      -- one "!" per spot for the same set of quests, however many spawns stand there
+      local ids = {}
+      for _, e in ipairs(g.entries) do ids[#ids + 1] = e.id end
+      table.sort(ids)
+      local overlapKey = "a" .. table.concat(ids, ",")
       for _, p in ipairs(record and record.spawns and record.spawns[area] or {}) do
         if p[1] and p[1] >= 0 then
           pins[#pins + 1] = {
             area = area, x = p[1], y = p[2], layer = 4, size = 16, title = name, tooltip = tooltip,
             icon = allTrivial and "exclaimGrey" or (allRepeatable and "exclaimDaily" or "exclaim"),
             available = g.entries,   -- no highlight group: hovering a giver doesn't dim the map
+            overlapKey = overlapKey,
             onShiftClick = hideGiverPin,
             shiftHint = #g.entries > 1 and "Shift-click: hide these quests on the map" or "Shift-click: hide this quest on the map",
           }
