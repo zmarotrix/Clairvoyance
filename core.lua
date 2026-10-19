@@ -88,6 +88,37 @@ Core:On("PLAYER_ENTERING_WORLD", CV, function()
   if Core.Player.ready then becomeReady() end
 end)
 
+-------------------------------------------------------------------------------------------
+-- Another quest helper running too (Questie, pfQuest): two sets of map markers and trackers
+-- confuse everyone, so ask once per character whether to turn the other one off
+-------------------------------------------------------------------------------------------
+
+local OTHER_HELPERS = { "Questie", "pfQuest" }
+
+StaticPopupDialogs["CLAIRVOYANCE_OTHER_HELPER"] = {
+  text = "%s is also running, so you'll see two sets of quest markers on the map.\n\nTurn %s off for this character? (The interface reloads.)",
+  button1 = "Turn it off", button2 = "Keep both",
+  OnAccept = function(self, addon)
+    C_AddOns.DisableAddOn(addon, UnitName("player"))
+    ReloadUI()
+  end,
+  timeout = 0, whileDead = 1, hideOnEscape = 1, preferredIndex = 3,
+}
+
+function CV:CheckOtherHelpers()
+  if not (C_AddOns and C_AddOns.IsAddOnLoaded) then return end
+  CV.char.askedAbout = CV.char.askedAbout or {}
+  for _, addon in ipairs(OTHER_HELPERS) do
+    if C_AddOns.IsAddOnLoaded(addon) and not CV.char.askedAbout[addon] then
+      CV.char.askedAbout[addon] = true
+      local dialog = StaticPopup_Show("CLAIRVOYANCE_OTHER_HELPER", addon, addon)
+      if dialog then dialog.data = addon end
+      return addon
+    end
+  end
+end
+CV:OnReady(function() CV:CheckOtherHelpers() end)
+
 Core:RegisterAddon("clairvoyance", { version = C_AddOns and C_AddOns.GetAddOnMetadata(CV.addonName, "Version") or "0.1.0" })
 
 -- the suite's action for entities: show them on the map, through Clairvoyance
