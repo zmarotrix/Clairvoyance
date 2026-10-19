@@ -39,6 +39,12 @@ local NODE_ICON = UI.TEX.circle
 
 Extras.VIOLET = VIOLET
 
+-- tracked entries share the quests' colour system (Core.Colors): a stable palette colour per
+-- entry, click a pin for a new one, right-click to choose. Key: "track:<entry key>".
+local function colorKey(key) return "track:" .. key end
+function Extras.ColorOf(key) return Core.Colors:ForQuest(colorKey(key)) end
+Extras.ColorKey = colorKey
+
 -- the gathering professions (skill line ids) and their NorgannonDB categories
 local PROFESSIONS = {
   { key = "herbs", skill = 182, label = "Herbs", name = "Herbalism", color = UI.Hex("6fd36a") },
@@ -59,10 +65,11 @@ Extras.SERVICES = SERVICES
 
 local PLURAL = { npc = "npcs", object = "objects", item = "items", npcs = "npcs", objects = "objects", items = "items" }
 ---The icon of a tracked entry or Finder result, on a texture: a service's own icon, else the diamond.
-local function markIcon(tex, category, tracked)
+local function markIcon(tex, category, tracked, color)
   local name = category and Core.Map.ICONS["service." .. category] and ("service." .. category) or "diamond"
   local tint = Core.Map.SetIcon(tex, name)
-  if tint then tex:SetVertexColor(VIOLET[1], VIOLET[2], VIOLET[3]) else tex:SetVertexColor(1, 1, 1) end
+  local c = color or VIOLET
+  if tint then tex:SetVertexColor(c[1], c[2], c[3]) else tex:SetVertexColor(1, 1, 1) end
   tex:SetAlpha(tracked and 1 or (name == "diamond" and .25 or .7))
 end
 Extras.MarkIcon = markIcon
@@ -187,11 +194,54 @@ function CV:Untrack(key)
   Extras:RebuildTracking()
 end
 
+---Stops tracking everything.
+function CV:ClearTracking()
+  wipe(self.char.tracked)
+  Extras:RebuildTracking()
+end
+
+---The right-click menu of a tracked entry (tracker row).
+function Extras:TrackedMenu(owner, key)
+  local entry
+  for _, e in ipairs(CV.char.tracked) do if e.key == key then entry = e end end
+  if not entry then return end
+  local nearest = function() return nearestOf(Extras:TrackedPins(key)) end
+  Core:ShowActionMenu(owner, nil, nil, { title = entry.name, items = {
+    { text = "Point the arrow at the nearest", func = function()
+      if not pointArrow(nearest()) then CV:Print("None of these on this continent.") end
+    end },
+    { text = "Show on map", func = function()
+      local near = nearest()
+      local uiMap = near and Core.Map.AreaToUiMap(near.pin.area)
+      if not uiMap then CV:Print("None of these on this continent.") return end
+      if OpenWorldMap then OpenWorldMap(uiMap) else WorldMapFrame:Show() WorldMapFrame:SetMapID(uiMap) end
+      Core.Map:Pulse("track:" .. key)
+    end },
+    "-",
+    { text = "New colour", func = function() Core.Colors:Randomize(colorKey(key)) end },
+    { text = "Choose colour…", func = function() Core.Colors:Pick(colorKey(key)) end },
+    "-",
+    { text = "Stop tracking", func = function() CV:Untrack(key) end },
+    { text = "Clear all tracking", func = function() CV:ClearTracking() end },
+  } })
+end
+
+-- a random colour for a quest avoids the tracked entries' colours too, and the other way round
+Core.Colors:RegisterInUse("clairvoyance.tracking", function()
+  local keys = {}
+  for _, e in ipairs(CV.char and CV.char.tracked or {}) do keys[#keys + 1] = colorKey(e.key) end
+  return keys
+end)
+Core:Listen("NORGANNON_QUEST_COLOR_CHANGED", "clairvoyance.extras", function(_, key)
+  if type(key) == "string" and key:find("^track:") then Extras:Refresh() if Extras.finder and Extras.finder:IsShown() then Extras:FillFinder() end end
+end)
+
 local function trackedTooltip(entry)
   return function(pin, tt)
     tt:AddLine(pin.title or entry.name, 1, 1, 1)
     if pin.via then tt:AddLine(pin.via, C.muted[1], C.muted[2], C.muted[3]) end
-    tt:AddLine("Tracking: " .. entry.name, VIOLET[1], VIOLET[2], VIOLET[3])
+    local c = Extras.ColorOf(entry.key)
+    tt:AddLine("Tracking: " .. entry.name, c[1], c[2], c[3])
   end
 end
 
@@ -202,7 +252,7 @@ local function buildEntry(entry)
   local group = "track:" .. entry.key
   -- a service shows the game's own icon (flight master's boot, mailbox letter); the rest a violet diamond
   local service = entry.kind == "category" and Core.Map.ICONS["service." .. entry.category] and ("service." .. entry.category)
-  local spec = { icon = service or "diamond", color = not service and VIOLET or nil, layer = 4, size = service and 16 or 12, cluster = group, compass = group, highlight = group,
+  local spec = { icon = service or "diamond", colorKey = colorKey(entry.key), layer = 4, size = service and 16 or 12, cluster = group, compass = group, highlight = group,
     trackKey = entry.key, tooltip = trackedTooltip(entry), onShiftClick = untrackPin, shiftHint = "Shift-click: stop tracking" }
   if entry.kind == "npcs" or entry.kind == "objects" then
     for _, id in ipairs(entry.ids) do spawnPins(list, entry.kind, id, spec) end
@@ -570,9 +620,9 @@ function Extras:FillFinder()
     row.result = r
     row.name:SetText(r.name)
     local tracked = CV:IsTracked(r.trackKey)
-    local tc = tracked and VIOLET or C.text
+    local tc = tracked and Extras.ColorOf(r.trackKey) or C.text
     row.name:SetTextColor(tc[1], tc[2], tc[3])
-    markIcon(row.mark, r.category, tracked)
+    markIcon(row.mark, r.category, tracked, tracked and Extras.ColorOf(r.trackKey) or nil)
     local label = r.label or KIND_LABEL[r.key] or ""
     row.kind:SetText(tracked and "tracking" or label)
     row:Show()
@@ -651,6 +701,25 @@ local function groupLabel(content, i, width)
     h:SetSize(width, 20)
     h.text = UI.Text(h, "title", 13, C.goldSoft)
     h.text:SetPoint("LEFT", 4, 0)
+    -- "Clear": asks once ("Clear all?"), a second click within 3 seconds clears
+    h.clear = CreateFrame("Button", nil, h)
+    h.clear:SetSize(60, 18)
+    h.clear:SetPoint("RIGHT", -6, 0)
+    h.clear.text = UI.Text(h.clear, "body", 12, C.faint)
+    h.clear.text:SetPoint("RIGHT")
+    h.clear.text:SetJustifyH("RIGHT")
+    h.clear:SetScript("OnEnter", function(self) self.text:SetTextColor(C.text[1], C.text[2], C.text[3]) end)
+    h.clear:SetScript("OnLeave", function(self) self.text:SetTextColor(C.faint[1], C.faint[2], C.faint[3]) end)
+    h.clear:SetScript("OnClick", function(self)
+      if self.armed and GetTime() - self.armed < 3 then
+        self.armed = nil
+        CV:ClearTracking()
+      else
+        self.armed = GetTime()
+        self.text:SetText("Clear all?")   -- the tracker's refresh puts "Clear" back after 3 seconds
+      end
+    end)
+    h.clear:Hide()
     groupLabels[i] = h
   end
   return h
@@ -662,6 +731,10 @@ local function extraLine(content, i, width)
   line = CreateFrame("Button", nil, content)
   line:SetSize(width, 20)
   line:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+  line.edge = line:CreateTexture(nil, "ARTWORK")   -- the entry's colour, like a quest card's edge
+  line.edge:SetSize(3, 14)
+  line.edge:SetPoint("LEFT", 1, 0)
+  line.edge:SetColorTexture(1, 1, 1, 1)
   line.mark = line:CreateTexture(nil, "ARTWORK")
   line.mark:SetSize(14, 14)
   line.mark:SetPoint("LEFT", 6, 0)
@@ -684,11 +757,16 @@ local function extraLine(content, i, width)
     GameTooltip:SetOwner(self, "ANCHOR_LEFT")
     GameTooltip:AddLine(self.tipTitle or "", 1, 1, 1)
     if self.tipText then GameTooltip:AddLine(self.tipText, C.muted[1], C.muted[2], C.muted[3]) end
-    GameTooltip:AddLine("Click: point the arrow at the nearest", C.faint[1], C.faint[2], C.faint[3])
+    GameTooltip:AddLine(self.trackKey and "Click: point the arrow at the nearest · Right-click: colour, remove"
+      or "Click: point the arrow at the nearest", C.faint[1], C.faint[2], C.faint[3])
     GameTooltip:Show()
   end)
   line:SetScript("OnLeave", function() Core.Map:SetHighlight(nil) GameTooltip:Hide() end)
-  line:SetScript("OnClick", function(self)
+  line:SetScript("OnClick", function(self, button)
+    if button == "RightButton" then
+      if self.trackKey then Extras:TrackedMenu(self, self.trackKey) end
+      return
+    end
     local near = self.nearest and self.nearest()
     if not pointArrow(near, near and near.pin.title) then CV:Print("None of these on this continent.") end
   end)
@@ -701,7 +779,19 @@ local function yards(d)
   return string.format("%d yd", math.floor(d / 5 + .5) * 5)
 end
 
+local function paint(line)
+  if line.trackKey then
+    local c = Extras.ColorOf(line.trackKey)
+    line.edge:SetVertexColor(c[1], c[2], c[3])
+    line.edge:Show()
+    markIcon(line.mark, line.category, true, c)
+  else
+    line.edge:Hide()
+  end
+end
+
 local function fillDistance(line)
+  paint(line)
   local near = line.nearest and line.nearest()
   if near then
     line.dist:SetText(yards(near.distance))
@@ -727,6 +817,9 @@ function Extras:Draw(content, y, width)
     g = g + 1
     local h = groupLabel(content, g, width)
     h.text:SetText("Tracking  " .. UI.Code(C.faint) .. #tracked .. "|r")
+    h.clear.armed = nil
+    h.clear.text:SetText("Clear")
+    h.clear:Show()
     h:ClearAllPoints()
     h:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -y)
     h:Show()
@@ -735,8 +828,7 @@ function Extras:Draw(content, y, width)
       used = used + 1
       local line = extraLine(content, used, width)
       local key = entry.key
-      line.trackKey, line.highlight = key, "track:" .. key
-      markIcon(line.mark, entry.category, true)
+      line.trackKey, line.highlight, line.category = key, "track:" .. key, entry.category
       line.name:SetText(entry.name)
       local n = #Extras:TrackedPins(key)
       line.detail = function() return n > 1 and ("×" .. n) or "" end
@@ -761,6 +853,7 @@ function Extras:Draw(content, y, width)
         first, g = false, g + 1
         local h = groupLabel(content, g, width)
         h.text:SetText("Gathering")
+        h.clear:Hide()
         h:ClearAllPoints()
         h:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -y)
         h:Show()
@@ -769,7 +862,7 @@ function Extras:Draw(content, y, width)
       used = used + 1
       local line = extraLine(content, used, width)
       local key = prof.key
-      line.trackKey, line.highlight = nil, "gather:" .. key
+      line.trackKey, line.highlight, line.category = nil, "gather:" .. key, prof.key
       markIcon(line.mark, prof.key, true)
       line.name:SetText(prof.noSkill and prof.name or (prof.name .. " " .. rank))
       line.nearest = function()
@@ -792,6 +885,13 @@ end
 
 ---Distances only (the tracker's refresh).
 function Extras:Refresh()
+  for _, h in ipairs(groupLabels) do
+    local clear = h.clear
+    if clear.armed and GetTime() - clear.armed >= 3 then
+      clear.armed = nil
+      clear.text:SetText("Clear")
+    end
+  end
   for _, line in ipairs(lines) do
     if line:IsShown() then fillDistance(line) end
   end

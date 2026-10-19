@@ -22,7 +22,8 @@ CV.Tracker = Tracker
 
 local WIDTH = 300
 local MAX_HEIGHT_SHARE = .62      -- of the screen height; beyond it the list scrolls
-local MIN_LIST, GRIP = 60, 10     -- the shortest list you can drag it to; the grip's height
+local MIN_LIST, GRIP = 60, 12     -- the shortest list you can drag it to; the grip's height
+local GRIP_IDLE = .35             -- the handle's opacity when the mouse isn't on it
 local REFRESH = .5                -- seconds between distance updates
 local RESORT_AFTER = 2            -- a new nearest-first order must hold this long before rows move
 local SORTS = { { "near", "Nearest" }, { "zone", "Zone" }, { "level", "Level" }, { "log", "Log" } }
@@ -767,11 +768,11 @@ local function build()
   grip:SetPoint("BOTTOMLEFT")
   grip:SetPoint("BOTTOMRIGHT")
   grip:RegisterForClicks("RightButtonUp")
-  grip.bar = CreateFrame("Frame", nil, grip)   -- a small handle, shown on hover
-  grip.bar:SetSize(36, 4)
+  grip.bar = CreateFrame("Frame", nil, grip)   -- a small handle, always faintly there, bright on hover
+  grip.bar:SetSize(48, 4)
   grip.bar:SetPoint("CENTER", 0, 0)
-  UI.Pill(grip.bar, 4, "OVERLAY", 0):SetColor(C.muted, .6)
-  grip.bar:SetAlpha(0)
+  UI.Pill(grip.bar, 4, "OVERLAY", 0):SetColor(C.muted, .8)
+  grip.bar:SetAlpha(GRIP_IDLE)
   local function cursorY() return select(2, GetCursorPosition()) / f:GetEffectiveScale() end
   function grip:Apply(listH)
     f.scroll:SetHeight(listH)
@@ -779,12 +780,19 @@ local function build()
   end
   grip:SetScript("OnEnter", function(self)
     self.bar:SetAlpha(1)
+    if SetCursor then pcall(SetCursor, "UI_RESIZE_CURSOR") end
     GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
     GameTooltip:AddLine("Drag to change the tracker's length", 1, 1, 1)
     GameTooltip:AddLine("Right-click: automatic", C.muted[1], C.muted[2], C.muted[3])
     GameTooltip:Show()
   end)
-  grip:SetScript("OnLeave", function(self) if not self.dragging then self.bar:SetAlpha(0) end GameTooltip:Hide() end)
+  grip:SetScript("OnLeave", function(self)
+    if not self.dragging then
+      self.bar:SetAlpha(GRIP_IDLE)
+      if ResetCursor then ResetCursor() end
+    end
+    GameTooltip:Hide()
+  end)
   grip:SetScript("OnMouseDown", function(self, button)
     if button ~= "LeftButton" or InCombatLockdown() then return end
     self.dragging, self.startY, self.startH = true, cursorY(), f.scroll:GetHeight()
@@ -799,7 +807,9 @@ local function build()
     if button ~= "LeftButton" or not self.dragging then return end
     self.dragging = false
     self:SetScript("OnUpdate", nil)
-    self.bar:SetAlpha(self:IsMouseOver() and 1 or 0)
+    local over = self:IsMouseOver()
+    self.bar:SetAlpha(over and 1 or GRIP_IDLE)
+    if not over and ResetCursor then ResetCursor() end
     if self.height then CV.char.tracker.height = self.height end
     Tracker:Layout()
   end)
