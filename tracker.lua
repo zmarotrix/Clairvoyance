@@ -256,7 +256,7 @@ local function newRow()
   -- make them heavier on one side of such a small badge
   row.level:SetPoint("CENTER", 1, 1)   -- digits' right-side spacing reads as left of centre
   row.level:SetJustifyH("CENTER")
-  row.level:SetShadowOffset(0, 0)
+  UI.Glow(row.level)   -- the same soft glow as the quest names (no drop shadow)
   row.title = UI.Text(row, "title", 14)
   -- a soft black glow all round, so names read on any card opacity (an outline looked harsh)
   UI.Glow(row.title)
