@@ -99,9 +99,16 @@ Core:RegisterAction("clairvoyance.track", {
 SLASH_CLAIRVOYANCE1, SLASH_CLAIRVOYANCE2, SLASH_CLAIRVOYANCE3 = "/clair", "/clairvoyance", "/cv"
 SlashCmdList["CLAIRVOYANCE"] = function(msg)
   msg = strtrim(string.lower(msg or ""))
+  local why = tonumber(msg:match("^why%s+(%d+)"))
   if msg == "" or msg == "settings" then
     CV:OpenSettings()
+  elseif why then
+    -- /clair why <questId>: is it available, and if not, which rule blocks it
+    local ok, reason = CV.Availability:Why(why)
+    local name = Core.DB:Name("quests", why) or "unknown quest"
+    CV:Print(string.format("%s (%d): %s", name, why, ok and "available" or ("not available: " .. tostring(reason))))
   else
     CV:Print("/clair - settings")
+    CV:Print("/clair why <questId> - is a quest available, and if not, why")
   end
 end
