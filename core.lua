@@ -9,10 +9,10 @@ local DB = NorgannonDB
 Clairvoyance = { addonName = ADDON or "Clairvoyance" }
 local CV = Clairvoyance
 
-if not (Core and Core:Require(1, 3)) or not (DB and DB:RequireSchema(1, 2)) then
+if not (Core and Core:Require(1, 4)) or not (DB and DB:RequireSchema(1, 2)) then
   CV.disabled = true
   C_Timer.After(5, function()
-    print("|cff4fe3cfClairvoyance|r needs NorgannonDB 1.2 and NorgannonDB Core 1.3 or newer; it is turned off.")
+    print("|cff4fe3cfClairvoyance|r needs NorgannonDB 1.2 and NorgannonDB Core 1.4 or newer; it is turned off.")
   end)
   return
 end
@@ -30,7 +30,8 @@ local DEFAULTS = {
   },
   char = {
     hidden = {},          -- questId -> true: hidden from the tracker
-    tracker = { shown = true, sort = "near", collapsed = false, scale = 1, view = "detailed", collapsedZones = {} },
+    tracker = { shown = true, sort = "near", collapsed = false, scale = 1, view = "detailed", collapsedZones = {},
+      questView = {}, cardAlpha = .62 },
   },
 }
 
@@ -98,7 +99,7 @@ SLASH_CLAIRVOYANCE1, SLASH_CLAIRVOYANCE2, SLASH_CLAIRVOYANCE3 = "/clair", "/clai
 SlashCmdList["CLAIRVOYANCE"] = function(msg)
   msg = strtrim(string.lower(msg or ""))
   if msg == "" or msg == "settings" then
-    Core:OpenSettings()
+    CV:OpenSettings()
   else
     CV:Print("/clair - settings")
   end

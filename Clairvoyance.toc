@@ -14,3 +14,4 @@ model.lua
 pins.lua
 mapchips.lua
 tracker.lua
+settings.lua

@@ -122,6 +122,7 @@ local function showOnMap(m)
   local uiMap = near and Core.Map.AreaToUiMap(near.pin.area)
   if not uiMap then return end
   if OpenWorldMap then OpenWorldMap(uiMap) else WorldMapFrame:Show() WorldMapFrame:SetMapID(uiMap) end
+  Core.Map:Pulse("q" .. m.id)   -- the quest's dots grow and shrink so the eye finds them
 end
 
 local function selectQuest(m)
@@ -146,6 +147,7 @@ end
 local function openMenu(row, m)
   local focused = CV.focus == m.id
   Core:ShowActionMenu(row, "quest", m.id, { title = m.title, items = {
+    { text = "Open in quest log", func = function() openQuestLog(m) end },
     { text = focused and "Stop pointing the arrow here" or "Point the arrow here", func = function() Tracker:Focus(m) end },
     { text = "Show on map", func = function() showOnMap(m) end },
     { text = "Hide from tracker", func = function() CV.char.hidden[m.id] = true Tracker:Layout() end },
@@ -161,6 +163,15 @@ end
 -------------------------------------------------------------------------------------------
 -- Rows
 -------------------------------------------------------------------------------------------
+
+---Card background at the chosen opacity (settings: 0 to 100%); hover darkens it a little.
+---The outline fades with it, so a fully clear card has no box at all.
+function Tracker.PaintCard(row, hover)
+  local a = CV.char.tracker.cardAlpha or .62
+  local share = a / .62
+  row.bg:SetColor(hover and { .055, .043, .027 } or { .03, .024, .016 }, math.min(1, hover and a + .23 or a))
+  row.outline:SetColor({ 1, 1, 1 }, math.min(.3, (hover and .14 or .06) * math.max(share, hover and .5 or 0)))
+end
 
 local function objectiveLine(row, i)
   local line = row.lines[i]
@@ -198,9 +209,8 @@ local function newRow()
   row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
   -- the card (design/suite: rounded, a faint outline, the quest's colour along the left edge)
   row.bg = UI.Round(row, "BACKGROUND", 0, 6)
-  row.bg:SetColor({ .03, .024, .016 }, .62)
   row.outline = UI.Round(row, "BACKGROUND", 2, 6, "line")
-  row.outline:SetColor({ 1, 1, 1 }, .06)
+  Tracker.PaintCard(row, false)
   row.edge = UI.RoundEdge(row, "BORDER", 0, 6, 3)
   row.summary = UI.Text(row, "body", 12, C.muted)
   row.summary:SetJustifyH("RIGHT")
@@ -229,14 +239,12 @@ local function newRow()
   row.lines = {}
 
   row:SetScript("OnEnter", function(self)
-    self.bg:SetColor({ .055, .043, .027 }, .85)
-    self.outline:SetColor({ 1, 1, 1 }, .14)
+    Tracker.PaintCard(self, true)
     Core.Map:SetHighlight("q" .. self.m.id)
     Tracker:ShowTooltip(self, self.m)
   end)
   row:SetScript("OnLeave", function(self)
-    self.bg:SetColor({ .03, .024, .016 }, .62)
-    self.outline:SetColor({ 1, 1, 1 }, .06)
+    Tracker.PaintCard(self, false)
     Core.Map:SetHighlight(nil)
     GameTooltip:Hide()
   end)
@@ -245,7 +253,11 @@ local function newRow()
     if button == "RightButton" then openMenu(self, m)
     elseif IsControlKeyDown() then Tracker:Focus(m)
     elseif IsShiftKeyDown() then linkQuest(m)
-    else openQuestLog(m) end
+    else
+      -- click: this quest alone switches between compact and expanded
+      CV.char.tracker.questView[m.id] = Tracker.IsCompact(m) and "detailed" or "compact"
+      Tracker:Layout()
+    end
   end)
   return row
 end
@@ -267,7 +279,7 @@ function Tracker:ShowTooltip(row, m)
     end
   end
   local fa = C.faint
-  GameTooltip:AddLine("Click: quest log · Ctrl-click: point the arrow · Right-click: actions", fa[1], fa[2], fa[3])
+  GameTooltip:AddLine("Click: expand or compact · Ctrl-click: point the arrow · Right-click: actions", fa[1], fa[2], fa[3])
   GameTooltip:Show()
 end
 
@@ -325,7 +337,7 @@ local function fillRow(row, m, valuesOnly)
   local y = -28
   for i = 1, #row.lines do row.lines[i]:Hide() end
   row.turnin:Hide()
-  local compact = CV.char.tracker.view == "compact"
+  local compact = Tracker.IsCompact(m)
   row.summary:ClearAllPoints()
   row.qicon:ClearAllPoints()
   if compact then
@@ -475,6 +487,12 @@ local function groupHeader(i)
   return h
 end
 
+---Whether a quest shows compact: its own choice (clicked), else the tracker's default view.
+function Tracker.IsCompact(m)
+  local own = CV.char.tracker.questView[m.id]
+  return (own or CV.char.tracker.view) == "compact"
+end
+
 ---The one-line progress of a quest for the compact view: "4/10", or "2/4" objectives done.
 function Tracker.Summary(m)
   if m.complete == true or #m.objectives == 0 then return "" end
@@ -550,6 +568,7 @@ function Tracker:Draw(quests)
       local row = rows[used] or newRow()
       rows[used] = row
       local height = fillRow(row, m)
+      Tracker.PaintCard(row, false)
       row:ClearAllPoints()
       row:SetPoint("TOPLEFT", f.content, "TOPLEFT", 0, -y)
       row:Show()
@@ -606,102 +625,6 @@ end
 -- Frame
 -------------------------------------------------------------------------------------------
 
-local function segmented(parent)
-  local seg = CreateFrame("Frame", nil, parent)
-  seg:SetHeight(18)
-  seg.border = UI.Pill(seg, 18, "BACKGROUND", 0)
-  seg.border:SetColor(C.lineStrong)
-  seg.fill = UI.Pill(seg, 18, "BACKGROUND", 1, 1)
-  seg.fill:SetColor({ 0, 0, 0, .55 })
-  seg.buttons = {}
-  local x = 4
-  for _, s in ipairs(SORTS) do
-    local b = CreateFrame("Button", nil, seg)
-    b.key = s[1]
-    b.bg = UI.Tex(b, "ARTWORK", 0)
-    b.bg:SetAllPoints()
-    b.text = UI.Text(b, "body", 12, C.muted)
-    b.text:SetPoint("CENTER")
-    b.text:SetJustifyH("CENTER")
-    b.text:SetText(s[2])
-    local w = math.floor(b.text:GetStringWidth() + 14)
-    b:SetSize(w, 16)
-    b:SetPoint("LEFT", seg, "LEFT", x, 0)
-    x = x + w
-    b:SetScript("OnClick", function(self)
-      CV.char.tracker.sort = self.key
-      seg:Paint()
-      Tracker:Layout()
-    end)
-    seg.buttons[#seg.buttons + 1] = b
-  end
-  seg:SetWidth(x + 4)
-  function seg:Paint()
-    local a = UI.Accent("clairvoyance")
-    for _, b in ipairs(self.buttons) do
-      local on = b.key == CV.char.tracker.sort
-      b.bg:SetColorTexture(a[1], a[2], a[3], on and .3 or 0)
-      local tc = on and { 1, 1, 1 } or C.muted
-      b.text:SetTextColor(tc[1], tc[2], tc[3])
-    end
-  end
-  return seg
-end
-
--- Anchored by its top-left corner, so collapsing, the compact view or a new quest only change
--- the height below the header. (After a drag the game anchors frames by their centre; we
--- convert back.)
--- Detailed | Compact: two icon buttons in the tools row; the active one is lit, like the sort
--- switch. Its OnClick (also used by tests) flips the view.
-function Tracker.ViewSwitch(parent)
-  local sw = CreateFrame("Button", nil, parent)
-  sw:SetSize(52, 18)
-  sw.border = UI.Pill(sw, 18, "BACKGROUND", 0)
-  sw.border:SetColor(C.lineStrong)
-  sw.fill = UI.Pill(sw, 18, "BACKGROUND", 1, 1)
-  sw.fill:SetColor({ 0, 0, 0, .55 })
-  sw.parts = {}
-  for i, def in ipairs({ { "detailed", "viewDetailed", "Detailed view" }, { "compact", "viewCompact", "Compact view" } }) do
-    local b = CreateFrame("Button", nil, sw)
-    b:SetSize(22, 16)
-    b:SetPoint("LEFT", sw, "LEFT", 4 + (i - 1) * 22, 0)
-    b.key, b.tip = def[1], def[3]
-    b.bg = UI.Tex(b, "ARTWORK", 0)
-    b.bg:SetAllPoints()
-    b.icon = UI.Icon(b, def[2], 11, C.muted, "OVERLAY")
-    b.icon:SetPoint("CENTER")
-    b:SetScript("OnClick", function(self)
-      CV.char.tracker.view = self.key
-      sw:Paint()
-      Tracker:Layout()
-    end)
-    b:SetScript("OnEnter", function(self)
-      GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
-      GameTooltip:AddLine(self.tip, 1, 1, 1)
-      GameTooltip:Show()
-    end)
-    b:SetScript("OnLeave", function() GameTooltip:Hide() end)
-    sw.parts[i] = b
-  end
-  function sw:Paint()
-    local a = UI.Accent("clairvoyance")
-    for _, b in ipairs(self.parts) do
-      local on = CV.char.tracker.view == b.key
-      b.bg:SetColorTexture(a[1], a[2], a[3], on and .3 or 0)
-      local tc = on and { 1, 1, 1 } or C.muted
-      b.icon:SetVertexColor(tc[1], tc[2], tc[3])
-    end
-  end
-  -- clicking the switch itself flips the view
-  sw:SetScript("OnClick", function(self)
-    CV.char.tracker.view = CV.char.tracker.view == "compact" and "detailed" or "compact"
-    self:Paint()
-    Tracker:Layout()
-  end)
-  sw:Paint()
-  return sw
-end
-
 local function savePosition()
   local left, top = f:GetLeft(), f:GetTop()
   if not (left and top) then return end
@@ -744,6 +667,20 @@ local function build()
   local collapse = CreateFrame("Button", nil, head)
   collapse:SetSize(18, 18)
   collapse:SetPoint("RIGHT", -2, 0)
+  local gear = CreateFrame("Button", nil, head)
+  gear:SetSize(18, 18)
+  gear:SetPoint("RIGHT", collapse, "LEFT", -2, 0)
+  gear.icon = UI.Icon(gear, "gear", 12, C.muted)
+  gear.icon:SetPoint("CENTER")
+  gear:SetScript("OnClick", function() CV:OpenSettings() end)
+  gear:SetScript("OnEnter", function(self)
+    self.icon:SetVertexColor(1, 1, 1)
+    GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+    GameTooltip:AddLine("Clairvoyance settings", 1, 1, 1)
+    GameTooltip:Show()
+  end)
+  gear:SetScript("OnLeave", function(self) self.icon:SetVertexColor(C.muted[1], C.muted[2], C.muted[3]) GameTooltip:Hide() end)
+  f.gear = gear
   f.collapse = UI.Icon(collapse, "chevron", 12, C.muted)
   f.collapse:SetPoint("CENTER")
   collapse:SetScript("OnClick", function()
@@ -756,11 +693,32 @@ local function build()
   f.tools:SetHeight(20)
   f.tools:SetPoint("TOPLEFT", head, "BOTTOMLEFT", 0, -2)
   f.tools:SetPoint("TOPRIGHT", head, "BOTTOMRIGHT", 0, -2)
-  f.sort = segmented(f.tools)
+  local items = {}
+  for _, s in ipairs(SORTS) do items[#items + 1] = { key = s[1], label = s[2] } end
+  f.sort = UI.Segmented(f.tools, items, function(key)
+    CV.char.tracker.sort = key
+    Tracker:Layout()
+  end)
+  f.sort:ApplyAccent(UI.Accent("clairvoyance"))
   f.sort:SetPoint("LEFT", 0, 0)
-  f.sort:Paint()
-  f.view = Tracker.ViewSwitch(f.tools)
+  f.sort:Select(CV.char.tracker.sort, true)
+  -- the default view for every quest (a click on a quest changes just that one)
+  f.view = UI.Segmented(f.tools, {
+    { key = "detailed", icon = "viewDetailed", tip = "Detailed view (all quests)" },
+    { key = "compact", icon = "viewCompact", tip = "Compact view (all quests)" },
+  }, function(key)
+    CV.char.tracker.view = key
+    wipe(CV.char.tracker.questView)
+    Tracker:Layout()
+  end)
+  f.view:ApplyAccent(UI.Accent("clairvoyance"))
   f.view:SetPoint("RIGHT", 0, 0)
+  f.view:Select(CV.char.tracker.view, true)
+  f.view.parts = f.view.buttons
+  f.view:EnableMouse(true)
+  f.view:SetScript("OnMouseUp", function(self)   -- clicking the pill itself flips the view
+    self:Select(CV.char.tracker.view == "compact" and "detailed" or "compact")
+  end)
 
   f.scroll = UI.ScrollArea(f)
   f.scroll:SetPoint("TOPLEFT", f.tools, "BOTTOMLEFT", 0, -4)
