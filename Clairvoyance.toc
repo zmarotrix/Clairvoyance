@@ -15,4 +15,5 @@ availability.lua
 pins.lua
 mapchips.lua
 tracker.lua
+tooltips.lua
 settings.lua

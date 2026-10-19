@@ -35,6 +35,10 @@ CV:OnReady(function()
       if CV.Tracker.frame then CV.Tracker.frame:SetScale(v) end
     end, "%.0f%%", 100)
 
+  list:Header("Tooltips")
+  list:Toggle("Quest info in tooltips", "On NPCs, objects and items: which of your quests they're for, your progress and your party's.",
+    function() return CV.db.tooltips end, function(on) CV.db.tooltips = on end)
+
   list:Header("Map")
   list:Toggle("Objectives", "Where to find what your quests ask for.",
     function() return CV.db.filters.objectives end,
