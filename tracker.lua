@@ -25,7 +25,7 @@ local MAX_HEIGHT_SHARE = .62      -- of the screen height; beyond it the list sc
 local MIN_LIST, GRIP = 60, 12     -- the shortest list you can drag it to; the grip's height
 local COMPLETE = { .25, 1, .25 }   -- a finished quest's title
 local GRIP_IDLE = .35             -- the handle's opacity when the mouse isn't on it
-local REFRESH = .5                -- seconds between distance updates
+local REFRESH = .5                -- default seconds between distance and arrow updates (setting: tracker.refresh)
 local RESORT_AFTER = 2            -- a new nearest-first order must hold this long before rows move
 local SORTS = { { "near", "Nearest" }, { "zone", "Zone" }, { "level", "Level" }, { "log", "Log" } }
 
@@ -323,7 +323,7 @@ local function fillRow(row, m, valuesOnly)
   if near then
     row.dist:SetText(yards(near.distance))
     local facing = GetPlayerFacing()
-    row.arrow:SetShown(facing ~= nil and not Core.IsSecret(facing))
+    row.arrow:SetShown(CV.char.tracker.arrows ~= false and facing ~= nil and not Core.IsSecret(facing))
     if facing and not Core.IsSecret(facing) then row.arrow:SetRotation(near.angle - facing) end
     local tc = m.complete == true and C.gold or C.muted
     row.arrow:SetVertexColor(tc[1], tc[2], tc[3])
@@ -858,7 +858,7 @@ local function build()
   local elapsed = 0
   f:SetScript("OnUpdate", function(_, dt)
     elapsed = elapsed + dt
-    if elapsed < REFRESH then return end
+    if elapsed < (CV.char.tracker.refresh or REFRESH) then return end
     elapsed = 0
     Tracker:Refresh(InCombatLockdown())
   end)

@@ -31,6 +31,14 @@ CV:OnReady(function()
   list:Toggle("Progress colours", "Like pfQuest: counts and percentages go from red to yellow to green as you progress, and finished quests turn green.",
     function() return tracker().completeGreen end,
     function(on) tracker().completeGreen = on CV.Tracker:Layout() end)
+  list:Toggle("Direction arrows", "A small arrow next to each distance, pointing the way you need to go.",
+    function() return tracker().arrows end,
+    function(on) tracker().arrows = on CV.Tracker:Layout() end)
+  list:Slider("Distance and arrow updates", "How often distances, arrows and the Nearest order update. Faster feels smoother but "
+    .. "costs more: each update finds the nearest target of every quest and tracked thing. Every 0.5 s is light; at 0.1 s "
+    .. "with a full log and many tracked things, slower PCs can lose a few frames per second.", .1, 2, .1,
+    function() return tracker().refresh end,
+    function(v) tracker().refresh = v end, "%.1f s")
   list:Slider("Card background", "How dark the quest cards are behind the text.", 0, 1, .05,
     function() return tracker().cardAlpha end,
     function(v) tracker().cardAlpha = v CV.Tracker:Layout() end, "%.0f%%", 100)

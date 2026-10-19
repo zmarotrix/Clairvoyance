@@ -796,7 +796,7 @@ local function fillDistance(line)
   if near then
     line.dist:SetText(yards(near.distance))
     local facing = GetPlayerFacing()
-    local ok = facing ~= nil and not Core.IsSecret(facing)
+    local ok = CV.char.tracker.arrows ~= false and facing ~= nil and not Core.IsSecret(facing)
     line.arrow:SetShown(ok)
     if ok then line.arrow:SetRotation(near.angle - facing) end
   else
