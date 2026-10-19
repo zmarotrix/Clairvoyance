@@ -144,6 +144,8 @@ local function showOnMap(m)
   Core.Map:Pulse("q" .. m.id)   -- the quest's dots grow and shrink so the eye finds them
 end
 
+Tracker.ShowOnMap = showOnMap
+
 local function selectQuest(m)
   if C_QuestLog and C_QuestLog.SetSelectedQuest then
     C_QuestLog.SetSelectedQuest(m.id)

@@ -49,6 +49,25 @@ CV:OnReady(function()
       if CV.Tracker.frame then CV.Tracker.frame:SetScale(v) end
     end, "%.0f%%", 100)
 
+  list:Header("Automation")
+  list:Toggle("Accept quests", "Accepts quests you're offered, except grey ones (while those are hidden) and ones you hid on the map. Hold Shift to pause any automation.",
+    function() return CV.db.auto.accept end, function(on) CV.db.auto.accept = on end)
+  list:Toggle("Turn in quests", "Hands in finished quests and takes the reward when there's only one. Never when the turn-in costs money.",
+    function() return CV.db.auto.turnin end, function(on) CV.db.auto.turnin = on end)
+  list:Toggle("Choose rewards", "With a choice of rewards (and turn-in on), takes the one worth the most at a vendor.",
+    function() return CV.db.auto.reward end, function(on) CV.db.auto.reward = on end)
+  list:Toggle("Skip gossip", "At an NPC with quests for you, goes straight to the quest (only what the switches above allow).",
+    function() return CV.db.auto.gossip end, function(on) CV.db.auto.gossip = on end)
+  list:Buttons("Presets", "The first-run welcome: Helper, Guided or Minimal.", { { "Open the welcome", function() CV.Welcome:Show() end } })
+
+  list:Header("Quest log")
+  list:Toggle("Levels in the quest log", "Quest titles start with their level: [12] Cutting Teeth.",
+    function() return CV.db.questLog.levels end, function(on) CV.db.questLog.levels = on CV.QuestLog:Refresh() end)
+  list:Toggle("Quest IDs in the quest log", "Adds each quest's ID after its title, handy for reporting data problems.",
+    function() return CV.db.questLog.ids end, function(on) CV.db.questLog.ids = on CV.QuestLog:Refresh() end)
+  list:Toggle("Show on map and arrow buttons", "Above the selected quest's details.",
+    function() return CV.db.questLog.buttons end, function(on) CV.db.questLog.buttons = on CV.QuestLog:Refresh() end)
+
   list:Header("Tooltips")
   list:Toggle("Quest info in tooltips", "On NPCs, objects and items: which of your quests they're for, your progress and your party's.",
     function() return CV.db.tooltips end, function(on) CV.db.tooltips = on end)

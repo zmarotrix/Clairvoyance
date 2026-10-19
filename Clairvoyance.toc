@@ -17,4 +17,7 @@ tracking.lua
 mapchips.lua
 tracker.lua
 tooltips.lua
+automation.lua
+questlog.lua
 settings.lua
+welcome.lua

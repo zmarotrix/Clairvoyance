@@ -32,6 +32,9 @@ local DEFAULTS = {
     showFarAbove = false,
     tooltips = true,
     rareAlert = true,     -- a quiet chat line when a rare shows up on your nameplates
+    auto = { accept = false, turnin = false, reward = false, gossip = false },   -- off unless you turn it on
+    questLog = { levels = true, ids = false, buttons = true },
+    -- welcomed: a preset was chosen in the welcome; preset: which one
   },
   char = {
     hidden = {},          -- questId -> true: hidden from the tracker
@@ -140,6 +143,8 @@ SlashCmdList["CLAIRVOYANCE"] = function(msg)
   local why = tonumber(msg:match("^why%s+(%d+)"))
   if msg == "" or msg == "settings" then
     CV:OpenSettings()
+  elseif msg == "welcome" then
+    CV.Welcome:Show()
   elseif why then
     -- /clair why <questId>: is it available, and if not, which rule blocks it
     local ok, reason = CV.Availability:Why(why)
@@ -147,6 +152,7 @@ SlashCmdList["CLAIRVOYANCE"] = function(msg)
     CV:Print(string.format("%s (%d): %s", name, why, ok and "available" or ("not available: " .. tostring(reason))))
   else
     CV:Print("/clair - settings")
+    CV:Print("/clair welcome - the presets and automation switches")
     CV:Print("/clair why <questId> - is a quest available, and if not, why")
   end
 end
