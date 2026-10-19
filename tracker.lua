@@ -1,5 +1,6 @@
 -- The quest tracker (docs/clairvoyance-v1.md section 3; design/suite/clairvoyance.html).
--- Every quest in the log (any can be hidden), sorted Nearest / Zone / Level / Log, with live
+-- Two views: Detailed (objective lines with bars) and Compact (one line per quest). Every quest
+-- in the log (any can be hidden), sorted Nearest / Zone / Level / Log (zones collapse), with live
 -- objective progress, party members' progress, the distance and bearing of the nearest target,
 -- the turn-in once a quest is complete, and the quest's usable item.
 --
@@ -171,8 +172,19 @@ local function objectiveLine(row, i)
   line.count = UI.Text(line, "body", 13, C.muted)
   line.count:SetPoint("TOPRIGHT", 0, 0)
   line.count:SetJustifyH("RIGHT")
-  line.party = UI.Text(line, "body", 11, UI.Accent("clairvoyance"))
-  line.party:SetPoint("LEFT", line.text, "RIGHT", 6, 0)
+  -- a party member's progress: a small pill in the suite's accent (mockup .party)
+  line.chip = CreateFrame("Frame", nil, line)
+  line.chip:SetHeight(14)
+  line.chip:SetPoint("LEFT", line.text, "RIGHT", 6, 0)
+  local accent = UI.Accent("clairvoyance")
+  line.chip.border = UI.Pill(line.chip, 14, "BACKGROUND", 0)
+  line.chip.border:SetColor(accent, .7)
+  line.chip.fill = UI.Pill(line.chip, 14, "BACKGROUND", 1, 1)
+  line.chip.fill:SetColor(UI.Mix({ .05, .04, .03 }, accent, .18))
+  line.party = UI.Text(line.chip, "body", 11, { .85, 1, .97 })
+  line.party:SetPoint("CENTER", 0, 0)
+  line.party:SetJustifyH("CENTER")
+  line.chip:Hide()
   line.bar = UI.Bar(line)
   line.bar:SetPoint("TOPLEFT", line.text, "BOTTOMLEFT", 0, -3)
   line.bar:SetWidth(WIDTH - 34)
@@ -186,12 +198,16 @@ local function newRow()
   local row = CreateFrame("Button", nil, f.content)
   row:SetWidth(WIDTH)
   row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-  row.bg = UI.Tex(row, "BACKGROUND", 0, { .03, .024, .016, .62 })
-  row.bg:SetAllPoints()
-  row.edge = UI.Tex(row, "BORDER", 0)
-  row.edge:SetWidth(3)
-  row.edge:SetPoint("TOPLEFT")
-  row.edge:SetPoint("BOTTOMLEFT")
+  -- the card (design/suite: rounded, a faint outline, the quest's colour along the left edge)
+  row.bg = UI.Round(row, "BACKGROUND", 0, 6)
+  row.bg:SetColor({ .03, .024, .016 }, .62)
+  row.outline = UI.Round(row, "BACKGROUND", 2, 6, "line")
+  row.outline:SetColor({ 1, 1, 1 }, .06)
+  row.edge = UI.RoundEdge(row, "BORDER", 0, 6, 3)
+  row.summary = UI.Text(row, "body", 12, C.muted)
+  row.summary:SetJustifyH("RIGHT")
+  row.qicon = row:CreateTexture(nil, "ARTWORK")
+  row.qicon:SetSize(14, 14)
   row.itemSlot = CreateFrame("Frame", nil, row)
   row.itemSlot:SetSize(22, 22)
   row.itemSlot:SetPoint("TOPLEFT", 9, -4)
@@ -215,12 +231,14 @@ local function newRow()
   row.lines = {}
 
   row:SetScript("OnEnter", function(self)
-    self.bg:SetColorTexture(.055, .043, .027, .85)
+    self.bg:SetColor({ .055, .043, .027 }, .85)
+    self.outline:SetColor({ 1, 1, 1 }, .14)
     Core.Map:SetHighlight("q" .. self.m.id)
     Tracker:ShowTooltip(self, self.m)
   end)
   row:SetScript("OnLeave", function(self)
-    self.bg:SetColorTexture(.03, .024, .016, .62)
+    self.bg:SetColor({ .03, .024, .016 }, .62)
+    self.outline:SetColor({ 1, 1, 1 }, .06)
     Core.Map:SetHighlight(nil)
     GameTooltip:Hide()
   end)
@@ -260,7 +278,7 @@ end
 local function fillRow(row, m, valuesOnly)
   row.m = m
   local c = questColor(m.id)
-  row.edge:SetColorTexture(c[1], c[2], c[3], 1)
+  row.edge:SetColor(c)
   local lc = levelColor(m)
   row.level:SetTextColor(lc[1], lc[2], lc[3])
   row.level:SetText(m.level and m.level > 0 and m.level or "")
@@ -281,6 +299,7 @@ local function fillRow(row, m, valuesOnly)
     row.dist:SetText(m.complete == true and m.turnins[1] and "other zone" or "")
     row.arrow:Hide()
   end
+  row.summary:SetText(Tracker.Summary(m))
   if valuesOnly then
     for i, o in ipairs(m.objectives) do
       local line = row.lines[i]
@@ -308,6 +327,27 @@ local function fillRow(row, m, valuesOnly)
   local y = -28
   for i = 1, #row.lines do row.lines[i]:Hide() end
   row.turnin:Hide()
+  local compact = CV.char.tracker.view == "compact"
+  row.summary:ClearAllPoints()
+  row.qicon:ClearAllPoints()
+  if compact then
+    -- one line: the summary (or the turn-in "?") sits left of the distance
+    local anchor = row.arrow:IsShown() and row.arrow or row.dist
+    if m.complete == true then
+      Core.Map.SetIcon(row.qicon, "question")
+      row.qicon:SetPoint("RIGHT", anchor, "LEFT", -6, 0)
+      row.qicon:Show()
+      row.summary:Hide()
+    else
+      row.qicon:Hide()
+      row.summary:SetPoint("RIGHT", anchor, "LEFT", -6, 0)
+      row.summary:Show()
+    end
+    row:SetHeight(28)
+    return 28
+  end
+  row.summary:Hide()
+  row.qicon:Hide()
   if m.complete == true then
     local name, where = turninWhere(m)
     Core.Map.SetIcon(row.turnin.icon, "question")
@@ -334,7 +374,14 @@ local function fillRow(row, m, valuesOnly)
       for player, objectives in pairs(m.party or {}) do
         if objectives[i] then partyName, party = player, objectives[i] break end
       end
-      line.party:SetText(party and not done and (string.sub(partyName, 1, 1) .. " " .. (party.fulfilled or 0)) or "")
+      if party and not done then
+        line.party:SetText(string.sub(partyName, 1, 1) .. " " .. (party.fulfilled or 0))
+        line.chip:SetWidth(math.floor(line.party:GetStringWidth() + 12))
+        line.chip:Show()
+      else
+        line.party:SetText("")
+        line.chip:Hide()
+      end
       local hasBar = not done and o.required and o.required > 1
       line.bar:SetShown(hasBar)
       if hasBar then
@@ -411,13 +458,38 @@ end
 local groupHeaders = {}
 Tracker.headers = groupHeaders
 
+-- zone headers (Zone sort): click to collapse or expand that zone; remembered per character
 local function groupHeader(i)
   local h = groupHeaders[i]
   if not h then
-    h = UI.Text(f.content, "title", 13, C.goldSoft)
+    h = CreateFrame("Button", nil, f.content)
+    h:SetSize(WIDTH, 20)
+    h.chev = UI.Icon(h, "chevron", 10, C.goldSoft)
+    h.chev:SetPoint("LEFT", 4, 0)
+    h.text = UI.Text(h, "title", 13, C.goldSoft)
+    h.text:SetPoint("LEFT", h.chev, "RIGHT", 5, 0)
+    h:SetScript("OnClick", function(self)
+      local zones = CV.char.tracker.collapsedZones
+      zones[self.zone] = not zones[self.zone] or nil
+      Tracker:Layout()
+    end)
+    h:SetScript("OnEnter", function(self) self.text:SetTextColor(C.gold[1], C.gold[2], C.gold[3]) end)
+    h:SetScript("OnLeave", function(self) self.text:SetTextColor(C.goldSoft[1], C.goldSoft[2], C.goldSoft[3]) end)
     groupHeaders[i] = h
   end
   return h
+end
+
+---The one-line progress of a quest for the compact view: "4/10", or "2/4" objectives done.
+function Tracker.Summary(m)
+  if m.complete == true or #m.objectives == 0 then return "" end
+  if #m.objectives == 1 then
+    local o = m.objectives[1]
+    return o.current and o.required and o.required > 1 and (o.current .. "/" .. o.required) or ""
+  end
+  local done = 0
+  for _, o in ipairs(m.objectives) do if o.finished then done = done + 1 end end
+  return done .. "/" .. #m.objectives
 end
 
 local function placeItemButtons()
@@ -454,29 +526,42 @@ function Tracker:Draw(quests)
   f.tools:SetShown(not collapsed)
   f.scroll:SetShown(not collapsed)
   for _, h in ipairs(groupHeaders) do h:Hide() end
-  local y, zone, g = 0, nil, 0
-  for i, m in ipairs(quests) do
-    local row = rows[i] or newRow()
-    rows[i] = row
-    if CV.char.tracker.sort == "zone" then
+  local byZone = CV.char.tracker.sort == "zone"
+  local counts = {}
+  if byZone then
+    for _, m in ipairs(quests) do
       local z = areaName(m.zone) or "Other"
-      if z ~= zone then
-        zone, g = z, g + 1
-        local h = groupHeader(g)
-        h:SetText(z)
-        h:ClearAllPoints()
-        h:SetPoint("TOPLEFT", f.content, "TOPLEFT", 4, -y - 4)
-        h:Show()
-        y = y + 22
-      end
+      counts[z] = (counts[z] or 0) + 1
     end
-    local height = fillRow(row, m)
-    row:ClearAllPoints()
-    row:SetPoint("TOPLEFT", f.content, "TOPLEFT", 0, -y)
-    row:Show()
-    y = y + height + 6
   end
-  for i = #quests + 1, #rows do
+  local compact = CV.char.tracker.view == "compact"
+  local gap = compact and 3 or 6
+  local y, zone, g, used = 0, nil, 0, 0
+  for _, m in ipairs(quests) do
+    local z = byZone and (areaName(m.zone) or "Other")
+    if byZone and z ~= zone then
+      zone, g = z, g + 1
+      local h = groupHeader(g)
+      h.zone = z
+      h.text:SetText(z .. "  " .. UI.Code(C.faint) .. counts[z] .. "|r")
+      h.chev:SetRotation(CV.char.tracker.collapsedZones[z] and math.pi / 2 or 0)
+      h:ClearAllPoints()
+      h:SetPoint("TOPLEFT", f.content, "TOPLEFT", 0, -y)
+      h:Show()
+      y = y + 22
+    end
+    if not (byZone and CV.char.tracker.collapsedZones[z]) then
+      used = used + 1
+      local row = rows[used] or newRow()
+      rows[used] = row
+      local height = fillRow(row, m)
+      row:ClearAllPoints()
+      row:SetPoint("TOPLEFT", f.content, "TOPLEFT", 0, -y)
+      row:Show()
+      y = y + height + gap
+    end
+  end
+  for i = used + 1, #rows do
     rows[i]:Hide()
     if rows[i].m then Core.ItemButtons:Hide("cv" .. rows[i].m.id) end
     rows[i].m = nil
@@ -568,10 +653,17 @@ local function segmented(parent)
   return seg
 end
 
+-- Anchored by its top-left corner, so collapsing, the compact view or a new quest only change
+-- the height below the header. (After a drag the game anchors frames by their centre; we
+-- convert back.)
 local function savePosition()
-  local point, _, relativePoint, x, y = f:GetPoint()
-  CV.char.tracker.position = { point = point, relativePoint = relativePoint, x = x, y = y }
+  local left, top = f:GetLeft(), f:GetTop()
+  if not (left and top) then return end
+  f:ClearAllPoints()
+  f:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", left, top)
+  CV.char.tracker.position = { point = "TOPLEFT", relativePoint = "BOTTOMLEFT", x = left, y = top }
 end
+Tracker.SavePosition = savePosition
 
 local function build()
   f = CreateFrame("Frame", "ClairvoyanceTracker", UIParent)
@@ -582,6 +674,7 @@ local function build()
   local pos = CV.char.tracker.position
   if pos and pos.point then
     f:SetPoint(pos.point, UIParent, pos.relativePoint or pos.point, pos.x or 0, pos.y or 0)
+    if pos.point ~= "TOPLEFT" then C_Timer.After(0, savePosition) end   -- saved by 0.1: convert
   else
     f:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", -70, -250)
   end
@@ -611,6 +704,30 @@ local function build()
     CV.char.tracker.collapsed = not CV.char.tracker.collapsed
     Tracker:Layout()
   end)
+  -- Detailed / Compact: the icon shows the view you would switch to
+  local view = CreateFrame("Button", nil, head)
+  view:SetSize(18, 18)
+  view:SetPoint("RIGHT", collapse, "LEFT", -4, 0)
+  view.icon = UI.Icon(view, "viewCompact", 12, C.muted)
+  view.icon:SetPoint("CENTER")
+  function view:Paint()
+    local compact = CV.char.tracker.view == "compact"
+    self.icon:SetTexture(compact and UI.TEX.viewDetailed or UI.TEX.viewCompact)
+  end
+  view:SetScript("OnClick", function(self)
+    CV.char.tracker.view = CV.char.tracker.view == "compact" and "detailed" or "compact"
+    self:Paint()
+    Tracker:Layout()
+  end)
+  view:SetScript("OnEnter", function(self)
+    self.icon:SetVertexColor(1, 1, 1)
+    GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+    GameTooltip:AddLine(CV.char.tracker.view == "compact" and "Detailed view" or "Compact view", 1, 1, 1)
+    GameTooltip:Show()
+  end)
+  view:SetScript("OnLeave", function(self) self.icon:SetVertexColor(C.muted[1], C.muted[2], C.muted[3]) GameTooltip:Hide() end)
+  view:Paint()
+  f.view = view
 
   f.tools = CreateFrame("Frame", nil, f)
   f.tools:SetHeight(20)
