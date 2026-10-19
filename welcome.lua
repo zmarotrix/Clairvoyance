@@ -264,6 +264,21 @@ function Welcome.Due()
   return true
 end
 
+-- Clairvoyance's hot paths for /norg perf (wrapped only while measuring)
+CV:OnReady(function()
+  local function perf(label, tbl, method) Core:RegisterPerf("Clairvoyance: " .. label, tbl, method, "clairvoyance") end
+  perf("tracker refresh", CV.Tracker, "Refresh")
+  perf("tracker layout", CV.Tracker, "Layout")
+  perf("quest model", CV.Model, "Rebuild")
+  perf("objective pins", CV.Pins, "Rebuild")
+  perf("available quests", CV.Pins, "RebuildAvailable")
+  perf("availability rules", CV.Availability, "ForArea")
+  perf("gathering and rares", CV.Extras, "RebuildZones")
+  perf("tracked things", CV.Extras, "RebuildTracking")
+  perf("tracking distances", CV.Extras, "Refresh")
+  perf("tooltips", CV.Tooltips, "AddLines")
+end)
+
 CV:OnReady(function()
   if Welcome.Due() then
     C_Timer.After(3, function() if Welcome.Due() and not (win and win:IsShown()) then Welcome:Show() end end)

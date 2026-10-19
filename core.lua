@@ -9,10 +9,10 @@ local DB = NorgannonDB
 Clairvoyance = { addonName = ADDON or "Clairvoyance" }
 local CV = Clairvoyance
 
-if not (Core and Core:Require(1, 9)) or not (DB and DB:RequireSchema(1, 2)) then
+if not (Core and Core:Require(1, 10)) or not (DB and DB:RequireSchema(1, 2)) then
   CV.disabled = true
   C_Timer.After(5, function()
-    print("|cff4fe3cfClairvoyance|r needs NorgannonDB 1.2 and NorgannonDB Core 1.9 or newer; it is turned off.")
+    print("|cff4fe3cfClairvoyance|r needs NorgannonDB 1.2 and NorgannonDB Core 1.10 or newer; it is turned off.")
   end)
   return
 end

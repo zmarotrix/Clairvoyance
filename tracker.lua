@@ -241,7 +241,7 @@ local function newRow()
   row.summary = UI.Text(row, "body", 12, C.muted)
   row.summary:SetJustifyH("RIGHT")
   row.qicon = row:CreateTexture(nil, "ARTWORK")
-  row.qicon:SetSize(14, 14)
+  row.qicon:SetSize(20, 20)
   row.itemSlot = CreateFrame("Frame", nil, row)
   row.itemSlot:SetSize(22, 22)
   row.itemSlot:SetPoint("TOPLEFT", 9, -4)
@@ -373,6 +373,10 @@ local function fillRow(row, m, valuesOnly)
   for i = 1, #row.lines do row.lines[i]:Hide() end
   row.turnin:Hide()
   local compact = Tracker.IsCompact(m)
+  -- compact cards centre the distance (and with it the "?" or %) on the card's one line, even
+  -- when the distance is off and empty; detailed cards keep it beside the title
+  row.dist:ClearAllPoints()
+  if compact then row.dist:SetPoint("RIGHT", row, "RIGHT", -8, 0) else row.dist:SetPoint("TOPRIGHT", -8, -7) end
   row.summary:ClearAllPoints()
   row.qicon:ClearAllPoints()
   if compact then
@@ -380,7 +384,7 @@ local function fillRow(row, m, valuesOnly)
     local anchor = row.arrow:IsShown() and row.arrow or row.dist
     if m.complete == true then
       Core.Map.SetIcon(row.qicon, "question")
-      row.qicon:SetPoint("RIGHT", anchor, "LEFT", -6, 0)
+      row.qicon:SetPoint("RIGHT", anchor, "LEFT", anchor == row.dist and row.dist:GetText() == "" and 2 or -4, 0)
       row.qicon:Show()
       row.summary:Hide()
     else
