@@ -22,6 +22,7 @@ CV.Tracker = Tracker
 
 local WIDTH = 300
 local MAX_HEIGHT_SHARE = .62      -- of the screen height; beyond it the list scrolls
+local MIN_LIST, GRIP = 60, 10     -- the shortest list you can drag it to; the grip's height
 local REFRESH = .5                -- seconds between distance updates
 local RESORT_AFTER = 2            -- a new nearest-first order must hold this long before rows move
 local SORTS = { { "near", "Nearest" }, { "zone", "Zone" }, { "level", "Level" }, { "log", "Log" } }
@@ -597,11 +598,19 @@ function Tracker:Draw(quests)
     y = y + 18
   end
   f.content:SetHeight(math.max(1, y))
-  local maxH = (UIParent:GetHeight() or 800) * MAX_HEIGHT_SHARE
-  local listH = math.min(y, maxH)
+  local listH = math.min(y, Tracker.MaxListHeight())
   f.scroll:SetHeight(math.max(1, listH))
-  f:SetHeight(collapsed and 26 or (26 + 24 + listH + 4))
+  f:SetHeight(collapsed and 26 or (26 + 24 + listH + 4 + GRIP))
+  f.grip:SetShown(not collapsed)
   placeItemButtons()
+end
+
+---How tall the list may get before it scrolls: the length you dragged, else a share of the screen.
+function Tracker.MaxListHeight()
+  local screen = UIParent:GetHeight() or 800
+  local h = CV.char.tracker.height
+  if h then return math.max(MIN_LIST, math.min(h, screen * .9)) end
+  return screen * MAX_HEIGHT_SHARE
 end
 
 ---Updates distances and progress; re-sorts nearest-first only when the new order has held for
@@ -750,6 +759,55 @@ local function build()
   f.content = f.scroll.content
   f.content:SetWidth(WIDTH)
   f.scroll:HookScript("OnMouseWheel", function() if not InCombatLockdown() then placeItemButtons() end end)
+
+  -- the bottom edge: drag to set the tracker's length (the list scrolls beyond it); right-click
+  -- goes back to automatic. Only the length changes; the size slider in settings scales it all.
+  local grip = CreateFrame("Button", nil, f)
+  grip:SetHeight(GRIP)
+  grip:SetPoint("BOTTOMLEFT")
+  grip:SetPoint("BOTTOMRIGHT")
+  grip:RegisterForClicks("RightButtonUp")
+  grip.bar = CreateFrame("Frame", nil, grip)   -- a small handle, shown on hover
+  grip.bar:SetSize(36, 4)
+  grip.bar:SetPoint("CENTER", 0, 0)
+  UI.Pill(grip.bar, 4, "OVERLAY", 0):SetColor(C.muted, .6)
+  grip.bar:SetAlpha(0)
+  local function cursorY() return select(2, GetCursorPosition()) / f:GetEffectiveScale() end
+  function grip:Apply(listH)
+    f.scroll:SetHeight(listH)
+    f:SetHeight(26 + 24 + listH + 4 + GRIP)
+  end
+  grip:SetScript("OnEnter", function(self)
+    self.bar:SetAlpha(1)
+    GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
+    GameTooltip:AddLine("Drag to change the tracker's length", 1, 1, 1)
+    GameTooltip:AddLine("Right-click: automatic", C.muted[1], C.muted[2], C.muted[3])
+    GameTooltip:Show()
+  end)
+  grip:SetScript("OnLeave", function(self) if not self.dragging then self.bar:SetAlpha(0) end GameTooltip:Hide() end)
+  grip:SetScript("OnMouseDown", function(self, button)
+    if button ~= "LeftButton" or InCombatLockdown() then return end
+    self.dragging, self.startY, self.startH = true, cursorY(), f.scroll:GetHeight()
+    GameTooltip:Hide()
+    self:SetScript("OnUpdate", function()
+      local h = self.startH + (self.startY - cursorY())
+      self.height = math.floor(math.max(MIN_LIST, math.min(h, (UIParent:GetHeight() or 800) * .9)) + .5)
+      self:Apply(self.height)
+    end)
+  end)
+  grip:SetScript("OnMouseUp", function(self, button)
+    if button ~= "LeftButton" or not self.dragging then return end
+    self.dragging = false
+    self:SetScript("OnUpdate", nil)
+    self.bar:SetAlpha(self:IsMouseOver() and 1 or 0)
+    if self.height then CV.char.tracker.height = self.height end
+    Tracker:Layout()
+  end)
+  grip:SetScript("OnClick", function()
+    CV.char.tracker.height = nil
+    Tracker:Layout()
+  end)
+  f.grip = grip
 
   hiddenLine = CreateFrame("Button", nil, f.content)
   hiddenLine:SetSize(WIDTH, 16)
