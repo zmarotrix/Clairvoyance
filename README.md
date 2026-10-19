@@ -1,4 +1,9 @@
-# Clairvoyance
+<img width="824" height="192" alt="clairvoyance-wordmark-dark@2x" src="https://github.com/user-attachments/assets/5187c90d-9102-4f45-ad9c-62d8821b86af" />
+
+<img width="183" height="42" alt="powered-by-norgannondb-dark" src="https://github.com/user-attachments/assets/ff559e01-94f1-45c2-b8e2-fd98be5cd245" />
+
+---
+
 
 A modern quest helper for WoW Forever, built on **NorgannonDB** and **NorgannonDB Core**. It's
 part of the NorgannonDB suite, together with Oracle, Foresight and Archivum.
