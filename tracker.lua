@@ -23,7 +23,9 @@ CV.Tracker = Tracker
 local WIDTH = 300
 local MAX_HEIGHT_SHARE = .62      -- of the screen height; beyond it the list scrolls
 local MIN_LIST, GRIP = 60, 12     -- the shortest list you can drag it to; the grip's height
-local COMPLETE = { .25, 1, .25 }   -- a finished quest's title
+-- a finished quest's title: a light, bright green, well above the game's "easy" level green
+-- (#40bf40) so finished and low-level quests never read alike
+local COMPLETE = { .55, 1, .55 }
 local GRIP_IDLE = .35             -- the handle's opacity when the mouse isn't on it
 local REFRESH = .5                -- default seconds between distance and arrow updates (setting: tracker.refresh)
 local RESORT_AFTER = 2            -- a new nearest-first order must hold this long before rows move
@@ -56,6 +58,8 @@ local function areaName(area)
 end
 
 local function questColor(id) return Core.Colors:ForQuest(id) end
+
+Tracker.COMPLETE = COMPLETE
 
 ---pfQuest's progress colour: red at none, yellow halfway, green when done (lightened to read on
 ---the dark cards). nil when progress colours are off.
