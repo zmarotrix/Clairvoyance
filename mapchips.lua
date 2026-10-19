@@ -6,12 +6,17 @@ local CV = Clairvoyance
 if CV.disabled then return end
 local UI = Core.UI
 
--- the categories built so far (tracking, gathering and rares join later)
+-- what Clairvoyance draws; a profession's chip shows only if you have it ("Herbs · 145")
 local CHIPS = {
   { key = "objectives", label = "Objectives", color = UI.Accent("clairvoyance") },
   { key = "turnins", label = "Turn-ins", color = UI.C.gold },
   { key = "available", label = "Available", color = UI.C.fair },
+  { key = "tracking", label = "Tracking", color = CV.Extras.VIOLET },
 }
+for _, prof in ipairs(CV.Extras.PROFESSIONS) do
+  CHIPS[#CHIPS + 1] = { key = prof.key, label = prof.label, color = prof.color, profession = prof }
+end
+CHIPS[#CHIPS + 1] = { key = "rares", label = "Rares", color = UI.C.text }
 
 local bar
 
@@ -36,6 +41,7 @@ local function build()
     end)
     chip:SetPoint("LEFT", previous, "RIGHT", previous == bar.mark and 6 or 4, 0)
     chip.key = def.key
+    chip.profession = def.profession
     previous = chip
     width = width + chip:GetWidth() + 4
     bar.chips[#bar.chips + 1] = chip
@@ -77,6 +83,14 @@ local function layoutBar()
   bar:SetWidth(width + 8)
 end
 
+-- not a filter: opens the Finder under the bar
+local function addFindChip()
+  local find = UI.Chip(bar, "Track…", nil)
+  find:SetScript("OnClick", function(self) self:SetOn(false, true) CV.Extras:ToggleFinder(bar, true) end)
+  bar.find = find
+  bar.chips[#bar.chips + 1] = find
+end
+
 -- not a filter: a list of what shift-click hid (after hiddenMenu is defined)
 local function addHiddenChip()
   local hidden = UI.Chip(bar, "Hidden · 0", UI.C.faint)
@@ -89,6 +103,13 @@ end
 local function sync()
   for _, chip in ipairs(bar.chips) do
     if chip.key then chip:SetOn(CV.db.filters[chip.key], true) end
+    local prof = chip.profession
+    if prof then
+      local rank = CV.Extras.Rank(prof)
+      chip.label:SetText(prof.noSkill and prof.label or (prof.label .. " · " .. (rank or 0)))
+      chip:SetWidth(math.floor(chip.label:GetStringWidth() + 33))
+      chip:SetShown(rank ~= nil)
+    end
   end
   local n = #hiddenIds()
   bar.hidden.label:SetText("Hidden · " .. n)
@@ -99,6 +120,7 @@ end
 
 CV:OnReady(function()
   build()
+  addFindChip()
   addHiddenChip()
   sync()
 end)

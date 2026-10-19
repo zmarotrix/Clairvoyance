@@ -392,7 +392,7 @@ local function fillRow(row, m, valuesOnly)
         line.party:SetText("")
         line.chip:Hide()
       end
-      local hasBar = not done and o.required and o.required > 1
+      local hasBar = CV.char.tracker.bars ~= false and not done and o.required and o.required > 1
       line.bar:SetShown(hasBar)
       if hasBar then
         line.bar.accent = c
@@ -493,16 +493,22 @@ function Tracker.IsCompact(m)
   return (own or CV.char.tracker.view) == "compact"
 end
 
----The one-line progress of a quest for the compact view: "4/10", or "2/4" objectives done.
+---How far along a quest is, 0 to 1: the average of its objectives (pfQuest's percentage).
+function Tracker.Progress(m)
+  if m.complete == true then return 1 end
+  if #m.objectives == 0 then return 0 end
+  local sum = 0
+  for _, o in ipairs(m.objectives) do
+    if o.finished then sum = sum + 1
+    elseif o.current and o.required and o.required > 0 then sum = sum + math.min(1, o.current / o.required) end
+  end
+  return sum / #m.objectives
+end
+
+---The one-line progress of a quest for the compact view: "45%".
 function Tracker.Summary(m)
   if m.complete == true or #m.objectives == 0 then return "" end
-  if #m.objectives == 1 then
-    local o = m.objectives[1]
-    return o.current and o.required and o.required > 1 and (o.current .. "/" .. o.required) or ""
-  end
-  local done = 0
-  for _, o in ipairs(m.objectives) do if o.finished then done = done + 1 end end
-  return done .. "/" .. #m.objectives
+  return math.floor(Tracker.Progress(m) * 100) .. "%"
 end
 
 local function placeItemButtons()
@@ -580,6 +586,7 @@ function Tracker:Draw(quests)
     if rows[i].m then Core.ItemButtons:Hide("cv" .. rows[i].m.id) end
     rows[i].m = nil
   end
+  if CV.Extras then y = CV.Extras:Draw(f.content, y, WIDTH) end   -- Tracking and Gathering
   local hidden = 0
   for id in pairs(CV.char.hidden) do if CV.Model:Get(id) then hidden = hidden + 1 end end
   hiddenLine:SetShown(hidden > 0)
@@ -619,6 +626,7 @@ function Tracker:Refresh(valuesOnly)
       if m then fillRow(row, m, true) end
     end
   end
+  if CV.Extras then CV.Extras:Refresh() end
 end
 
 -------------------------------------------------------------------------------------------
@@ -681,6 +689,22 @@ local function build()
   end)
   gear:SetScript("OnLeave", function(self) self.icon:SetVertexColor(C.muted[1], C.muted[2], C.muted[3]) GameTooltip:Hide() end)
   f.gear = gear
+  -- track anything: the Finder opens beside the tracker
+  local find = CreateFrame("Button", nil, head)
+  find:SetSize(18, 18)
+  find:SetPoint("RIGHT", gear, "LEFT", -2, 0)
+  find.icon = UI.Icon(find, "search", 12, C.muted)
+  find.icon:SetPoint("CENTER")
+  find:SetScript("OnClick", function() CV.Extras:ToggleFinder(f) end)
+  find:SetScript("OnEnter", function(self)
+    self.icon:SetVertexColor(1, 1, 1)
+    GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+    GameTooltip:AddLine("Track anything", 1, 1, 1)
+    GameTooltip:AddLine("Herbs, ore, NPCs, items, flight masters, mailboxes…", C.muted[1], C.muted[2], C.muted[3])
+    GameTooltip:Show()
+  end)
+  find:SetScript("OnLeave", function(self) self.icon:SetVertexColor(C.muted[1], C.muted[2], C.muted[3]) GameTooltip:Hide() end)
+  f.find = find
   f.collapse = UI.Icon(collapse, "chevron", 12, C.muted)
   f.collapse:SetPoint("CENTER")
   collapse:SetScript("OnClick", function()

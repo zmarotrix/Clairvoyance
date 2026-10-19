@@ -25,6 +25,9 @@ CV:OnReady(function()
       if CV.Tracker.frame then CV.Tracker.frame.view:Select(v, true) end
       CV.Tracker:Layout()
     end)
+  list:Toggle("Progress bars", "A bar under each objective that needs more than one of something. Off: just the counts.",
+    function() return tracker().bars end,
+    function(on) tracker().bars = on CV.Tracker:Layout() end)
   list:Slider("Card background", "How dark the quest cards are behind the text.", 0, 1, .05,
     function() return tracker().cardAlpha end,
     function(v) tracker().cardAlpha = v CV.Tracker:Layout() end, "%.0f%%", 100)
@@ -55,6 +58,22 @@ CV:OnReady(function()
   list:Toggle("Quests far above your level", "Also show quests 10 or more levels above you.",
     function() return CV.db.showFarAbove end,
     function(on) CV.db.showFarAbove = on CV:Send("FILTERS_CHANGED", "available") end)
+
+  list:Header("Tracking, gathering and rares")
+  list:Toggle("Tracked things", "What you track with the magnifier in the tracker or Track… on the world map.",
+    function() return CV.db.filters.tracking end,
+    function(on) CV.db.filters.tracking = on CV:Send("FILTERS_CHANGED", "tracking") end)
+  for _, prof in ipairs(CV.Extras.PROFESSIONS) do
+    list:Toggle(prof.name .. " nodes", prof.noSkill and "Fishing pools in the zone." or
+      ("Nodes you can gather now, and the next " .. 25 .. " skill points' nodes dimmed. Shown when you have " .. prof.name .. "."),
+      function() return CV.db.filters[prof.key] end,
+      function(on) CV.db.filters[prof.key] = on CV:Send("FILTERS_CHANGED", prof.key) end)
+  end
+  list:Toggle("Rares", "Rare NPCs in the zone, with their level and notable drops.",
+    function() return CV.db.filters.rares end,
+    function(on) CV.db.filters.rares = on CV:Send("FILTERS_CHANGED", "rares") end)
+  list:Toggle("Tell me when a rare is near", "A quiet chat line and a soft ping when a rare shows up on your nameplates (open world only).",
+    function() return CV.db.rareAlert end, function(on) CV.db.rareAlert = on end)
 
   page:SetScript("OnShow", function() list:Refresh() end)
   CV.settingsPage, CV.settingsList = page, list
