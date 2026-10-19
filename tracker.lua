@@ -254,13 +254,12 @@ local function newRow()
   row.level = UI.Text(row.badge, "bold", 12)
   -- optically centred: digits sit low in the font's line box, and the usual drop shadow would
   -- make them heavier on one side of such a small badge
-  row.level:SetPoint("CENTER", 0, 1)
+  row.level:SetPoint("CENTER", 1, 1)   -- digits' right-side spacing reads as left of centre
   row.level:SetJustifyH("CENTER")
   row.level:SetShadowOffset(0, 0)
   row.title = UI.Text(row, "title", 14)
-  -- a black outline, so names read on any card opacity (UI.Glow is the softer alternative)
-  row.title:SetFontObject(UI.Font("title", 14, "OUTLINE"))
-  row.title:SetShadowOffset(0, 0)
+  -- a soft black glow all round, so names read on any card opacity (an outline looked harsh)
+  UI.Glow(row.title)
   row.dist = UI.Text(row, "body", 12, C.muted)
   row.dist:SetPoint("TOPRIGHT", -8, -7)
   row.dist:SetJustifyH("RIGHT")
@@ -383,7 +382,7 @@ local function fillRow(row, m, valuesOnly)
   row.itemSlot:SetShown(m.item ~= nil)
   if m.item then left = left + 26 end
   row.badge:ClearAllPoints()
-  row.badge:SetPoint("TOPLEFT", left, -6)
+  row.badge:SetPoint("TOPLEFT", left - 2, -6)
   row.title:ClearAllPoints()
   if row.badge:IsShown() then
     row.title:SetPoint("LEFT", row.badge, "RIGHT", 6, 0)
