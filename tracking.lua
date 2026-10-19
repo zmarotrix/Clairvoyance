@@ -670,13 +670,16 @@ local function buildFinder()
   Extras.finder = finder
 end
 
----Opens the Finder next to a frame (the tracker's header, the map's chips); again closes it.
-function Extras:ToggleFinder(anchor, below)
+---Opens the Finder next to a frame (the tracker's header, the map's button); again closes it.
+---below: under the frame; alignRight: its right edge lines up with the frame's (opens leftwards).
+function Extras:ToggleFinder(anchor, below, alignRight)
   if not finder then buildFinder() end
   if finder:IsShown() and finder.anchor == anchor then finder:Hide() return end
   finder.anchor = anchor
   finder:ClearAllPoints()
-  if below then
+  if below and alignRight then
+    finder:SetPoint("TOPRIGHT", anchor, "BOTTOMRIGHT", 0, -4)
+  elseif below then
     finder:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -4)
   else
     finder:SetPoint("TOPRIGHT", anchor, "TOPLEFT", -6, 0)

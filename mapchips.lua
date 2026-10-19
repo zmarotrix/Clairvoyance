@@ -1,5 +1,5 @@
--- What Clairvoyance draws on the world map: one small Clairvoyance button in the map's top-left
--- corner; click it for a dropdown of filter chips ("Objectives", "Turn-ins", "Herbs · 145", ...),
+-- What Clairvoyance draws on the world map: one small Clairvoyance button in the map's top-right
+-- corner (the top-left has the game's own map pin button); click it for a dropdown of filter chips ("Objectives", "Turn-ins", "Herbs · 145", ...),
 -- "Track…" and, when quests are hidden, "Hidden · N". The dropdown closes with the map or a
 -- second click, so the map stays clear. The choices are saved.
 
@@ -29,7 +29,7 @@ local bar   -- the button; bar.panel is the dropdown, bar.chips its chips
 local function build()
   local container = WorldMapFrame.ScrollContainer or WorldMapFrame
   bar = CreateFrame("Button", "ClairvoyanceMapChips", WorldMapFrame)
-  bar:SetPoint("TOPLEFT", container, "TOPLEFT", 8, -8)
+  bar:SetPoint("TOPRIGHT", container, "TOPRIGHT", -8, -8)
   bar:SetSize(BUTTON, BUTTON)
   bar:SetFrameStrata(WorldMapFrame:GetFrameStrata() or "HIGH")
   bar:SetFrameLevel(WorldMapFrame:GetFrameLevel() + 2040)   -- above the map canvas and its pins
@@ -40,7 +40,7 @@ local function build()
   bar.mark:SetPoint("CENTER", 0, 0)
 
   local panel = CreateFrame("Frame", nil, bar)
-  panel:SetPoint("TOPLEFT", bar, "BOTTOMLEFT", 0, -4)
+  panel:SetPoint("TOPRIGHT", bar, "BOTTOMRIGHT", 0, -4)   -- opens leftwards, onto the map
   panel:EnableMouse(true)
   panel.bg = UI.Round(panel, "BACKGROUND", 0, 8)
   panel.bg:SetColor({ .04, .032, .022 }, .94)
@@ -75,7 +75,7 @@ local function build()
   bar:SetScript("OnEnter", function(self)
     paintButton(true)
     if panel:IsShown() then return end
-    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+    GameTooltip:SetOwner(self, "ANCHOR_LEFT")
     GameTooltip:AddLine("Clairvoyance", 1, 1, 1)
     GameTooltip:AddLine("What's shown on the map, and Track…", C.muted[1], C.muted[2], C.muted[3])
     GameTooltip:Show()
@@ -131,7 +131,7 @@ local function addFindChip()
   find:SetScript("OnClick", function(self)
     self:SetOn(false, true)
     bar.panel:Hide()
-    CV.Extras:ToggleFinder(bar, true)
+    CV.Extras:ToggleFinder(bar, true, true)
   end)
   bar.find = find
   bar.chips[#bar.chips + 1] = find
