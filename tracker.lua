@@ -321,17 +321,19 @@ local function fillRow(row, m, valuesOnly)
     row.title:SetTextColor(COMPLETE[1], COMPLETE[2], COMPLETE[3])
   end
 
-  local near = CV.Pins:Nearest(m.id)
+  -- distance and direction (setting: tracker.arrows turns both off; no lookups then)
+  local showWay = CV.char.tracker.arrows ~= false
+  local near = showWay and CV.Pins:Nearest(m.id)
   if near then
     row.dist:SetText(yards(near.distance))
     local facing = GetPlayerFacing()
-    row.arrow:SetShown(CV.char.tracker.arrows ~= false and facing ~= nil and not Core.IsSecret(facing))
+    row.arrow:SetShown(facing ~= nil and not Core.IsSecret(facing))
     if facing and not Core.IsSecret(facing) then row.arrow:SetRotation(near.angle - facing) end
     local tc = m.complete == true and C.gold or C.muted
     row.arrow:SetVertexColor(tc[1], tc[2], tc[3])
     row.dist:SetTextColor(tc[1], tc[2], tc[3])
   else
-    row.dist:SetText(m.complete == true and m.turnins[1] and "other zone" or "")
+    row.dist:SetText(showWay and m.complete == true and m.turnins[1] and "other zone" or "")
     row.arrow:Hide()
   end
   row.summary:SetText(Tracker.Summary(m))

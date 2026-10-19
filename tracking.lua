@@ -793,10 +793,10 @@ end
 local function fillDistance(line)
   paint(line)
   local near = line.nearest and line.nearest()
-  if near then
+  if near and CV.char.tracker.arrows ~= false then
     line.dist:SetText(yards(near.distance))
     local facing = GetPlayerFacing()
-    local ok = CV.char.tracker.arrows ~= false and facing ~= nil and not Core.IsSecret(facing)
+    local ok = facing ~= nil and not Core.IsSecret(facing)
     line.arrow:SetShown(ok)
     if ok then line.arrow:SetRotation(near.angle - facing) end
   else
