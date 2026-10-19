@@ -257,7 +257,7 @@ local function newRow()
   row.level:SetPoint("CENTER", 0, 1)
   row.level:SetJustifyH("CENTER")
   row.level:SetShadowOffset(0, 0)
-  row.title = UI.Text(row, "bold", 15)
+  row.title = UI.Text(row, "title", 14)
   -- a slightly deeper drop shadow than the suite's 1px one, so names lift off any card opacity
   row.title:SetShadowOffset(1.5, -1.5)
   row.title:SetShadowColor(0, 0, 0, 1)
