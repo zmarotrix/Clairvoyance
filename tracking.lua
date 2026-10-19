@@ -58,6 +58,15 @@ local SERVICES = {
 Extras.SERVICES = SERVICES
 
 local PLURAL = { npc = "npcs", object = "objects", item = "items", npcs = "npcs", objects = "objects", items = "items" }
+---The icon of a tracked entry or Finder result, on a texture: a service's own icon, else the diamond.
+local function markIcon(tex, category, tracked)
+  local name = category and Core.Map.ICONS["service." .. category] and ("service." .. category) or "diamond"
+  local tint = Core.Map.SetIcon(tex, name)
+  if tint then tex:SetVertexColor(VIOLET[1], VIOLET[2], VIOLET[3]) else tex:SetVertexColor(1, 1, 1) end
+  tex:SetAlpha(tracked and 1 or (name == "diamond" and .25 or .7))
+end
+Extras.MarkIcon = markIcon
+
 local KIND_LABEL = { npcs = "NPC", objects = "Object", items = "Item", category = "Service" }
 
 -------------------------------------------------------------------------------------------
@@ -191,7 +200,9 @@ local function untrackPin(pin) CV:Untrack(pin.trackKey) end
 local function buildEntry(entry)
   local list = {}
   local group = "track:" .. entry.key
-  local spec = { icon = "diamond", color = VIOLET, layer = 4, size = 12, cluster = group, compass = group, highlight = group,
+  -- a service shows the game's own icon (flight master's boot, mailbox letter); the rest a violet diamond
+  local service = entry.kind == "category" and Core.Map.ICONS["service." .. entry.category] and ("service." .. entry.category)
+  local spec = { icon = service or "diamond", color = not service and VIOLET or nil, layer = 4, size = service and 16 or 12, cluster = group, compass = group, highlight = group,
     trackKey = entry.key, tooltip = trackedTooltip(entry), onShiftClick = untrackPin, shiftHint = "Shift-click: stop tracking" }
   if entry.kind == "npcs" or entry.kind == "objects" then
     for _, id in ipairs(entry.ids) do spawnPins(list, entry.kind, id, spec) end
@@ -463,8 +474,9 @@ local function resultRow(i)
   row.hl:SetAllPoints()
   row.hl:SetColorTexture(1, 1, 1, .06)
   row.hl:Hide()
-  row.mark = UI.Icon(row, "pinDiamond", 9, VIOLET)
-  row.mark:SetPoint("LEFT", 4, 0)
+  row.mark = row:CreateTexture(nil, "ARTWORK")
+  row.mark:SetSize(14, 14)
+  row.mark:SetPoint("LEFT", 2, 0)
   row.name = UI.Text(row, "body", 13, C.text)
   row.name:SetPoint("LEFT", 18, 0)
   row.name:SetPoint("RIGHT", -64, 0)
@@ -483,6 +495,33 @@ local function resultRow(i)
   return row
 end
 
+-- has something to put on the map: spawns, or (items) a drop source or vendor
+local function trackable(kind, id)
+  local record = DB:Get(kind, id)
+  if not record then return false end
+  if kind ~= "items" then return record.spawns ~= nil and next(record.spawns) ~= nil end
+  local drops = record.drops
+  return (record.vendors and next(record.vendors) ~= nil) or (drops and ((drops.npcs and next(drops.npcs) ~= nil)
+    or (drops.objects and next(drops.objects) ~= nil))) or false
+end
+Extras.Trackable = trackable
+
+-- what a result is, in a player's words: "Herb", "Ore", "Rare", the NPC's title, "Item"
+local CATEGORY_LABEL = { herbs = "Herb", mines = "Ore", fish = "Fishing pool", chests = "Chest", rares = "Rare" }
+local function describe(kind, ids)
+  local cats = DB.categories or {}
+  for cat, label in pairs(CATEGORY_LABEL) do
+    local list = cats[cat] and cats[cat][kind]
+    if list then for _, id in ipairs(ids) do if list[id] ~= nil then return label end end end
+  end
+  if kind == "npcs" then
+    local title = DB:L("npcs", ids[1], "subName")
+    if title and title ~= "" then return title end
+  end
+  return KIND_LABEL[kind]
+end
+Extras.Describe = describe
+
 ---Results for the Finder: services when empty, else NPCs, objects and items by name.
 function Extras.FinderResults(text)
   local out = {}
@@ -495,8 +534,29 @@ function Extras.FinderResults(text)
     end
     return out
   end
-  for _, r in ipairs(Core.DB:Search(text, { kinds = { npcs = true, objects = true, items = true }, limit = MAX_RESULTS })) do
-    out[#out + 1] = { key = r.key, name = r.name, ids = r.ids, trackKey = entryKey(r.key, r.name) }
+  -- one row per name: a herb's node and its item are one thing to find. Records with nothing to
+  -- show on the map (no spawns, no sources) are left out.
+  local byName, order = {}, {}
+  for _, r in ipairs(Core.DB:Search(text, { kinds = { npcs = true, objects = true, items = true }, limit = MAX_RESULTS * 4 })) do
+    local lower = string.lower(r.name)
+    local group = byName[lower]
+    if not group then
+      group = { name = r.name }
+      byName[lower] = group
+      order[#order + 1] = group
+    end
+    local ids = {}
+    for _, id in ipairs(r.ids) do if trackable(r.key, id) then ids[#ids + 1] = id end end
+    if #ids > 0 then group[r.key] = ids end
+  end
+  for _, group in ipairs(order) do
+    -- what's on the map itself first (nodes, NPCs), else where the item comes from
+    local key = group.objects and "objects" or group.npcs and "npcs" or group.items and "items"
+    if key then
+      out[#out + 1] = { key = key, name = group.name, ids = group[key], trackKey = entryKey(key, group.name),
+        label = describe(key, group[key]) }
+      if #out >= MAX_RESULTS then break end
+    end
   end
   return out
 end
@@ -512,9 +572,8 @@ function Extras:FillFinder()
     local tracked = CV:IsTracked(r.trackKey)
     local tc = tracked and VIOLET or C.text
     row.name:SetTextColor(tc[1], tc[2], tc[3])
-    row.mark:SetAlpha(tracked and 1 or .25)
-    local label = KIND_LABEL[r.key] or ""
-    if r.ids and #r.ids > 1 then label = label .. " ×" .. #r.ids end
+    markIcon(row.mark, r.category, tracked)
+    local label = r.label or KIND_LABEL[r.key] or ""
     row.kind:SetText(tracked and "tracking" or label)
     row:Show()
   end
@@ -603,8 +662,9 @@ local function extraLine(content, i, width)
   line = CreateFrame("Button", nil, content)
   line:SetSize(width, 20)
   line:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-  line.mark = UI.Icon(line, "pinDiamond", 9, VIOLET)
-  line.mark:SetPoint("LEFT", 8, 0)
+  line.mark = line:CreateTexture(nil, "ARTWORK")
+  line.mark:SetSize(14, 14)
+  line.mark:SetPoint("LEFT", 6, 0)
   line.name = UI.Text(line, "body", 13, { .87, .84, .77 })
   line.name:SetPoint("LEFT", 22, 0)
   line.count = UI.Text(line, "body", 12, C.faint)
@@ -676,7 +736,7 @@ function Extras:Draw(content, y, width)
       local line = extraLine(content, used, width)
       local key = entry.key
       line.trackKey, line.highlight = key, "track:" .. key
-      line.mark:SetVertexColor(VIOLET[1], VIOLET[2], VIOLET[3])
+      markIcon(line.mark, entry.category, true)
       line.name:SetText(entry.name)
       local n = #Extras:TrackedPins(key)
       line.detail = function() return n > 1 and ("×" .. n) or "" end
@@ -710,7 +770,7 @@ function Extras:Draw(content, y, width)
       local line = extraLine(content, used, width)
       local key = prof.key
       line.trackKey, line.highlight = nil, "gather:" .. key
-      line.mark:SetVertexColor(prof.color[1], prof.color[2], prof.color[3])
+      markIcon(line.mark, prof.key, true)
       line.name:SetText(prof.noSkill and prof.name or (prof.name .. " " .. rank))
       line.nearest = function()
         return nearestOf(Extras:GatherPins(key), function(pin) return (pin.alpha or 1) >= 1 end)
