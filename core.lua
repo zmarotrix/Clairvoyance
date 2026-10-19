@@ -28,6 +28,7 @@ local DEFAULTS = {
   account = {
     filters = { objectives = true, turnins = true, available = true, tracking = true, gathering = false, rares = false },
     showTrivial = false,
+    showFarAbove = false,
   },
   char = {
     hidden = {},          -- questId -> true: hidden from the tracker

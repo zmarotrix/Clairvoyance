@@ -158,7 +158,7 @@ function Pins:RebuildAvailable()
   for _, area in ipairs(CV.Availability:Areas()) do
     local givers, order = {}, {}
     for _, e in ipairs(CV.Availability:ForArea(area)) do
-      if CV.db.showTrivial or not e.trivial then
+      if (CV.db.showTrivial or not e.trivial) and (CV.db.showFarAbove or not e.farAbove) then
         for _, starter in ipairs(e.starters) do
           local key = starter.kind .. starter.id
           if not givers[key] then
@@ -185,7 +185,7 @@ function Pins:RebuildAvailable()
           pins[#pins + 1] = {
             area = area, x = p[1], y = p[2], layer = 4, size = 16, title = name, tooltip = tooltip,
             icon = allTrivial and "exclaimGrey" or (allRepeatable and "exclaimDaily" or "exclaim"),
-            highlight = "giver:" .. key, available = g.entries,
+            available = g.entries,   -- no highlight group: hovering a giver doesn't dim the map
           }
         end
       end

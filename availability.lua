@@ -14,7 +14,7 @@ local DB = NorgannonDB
 local CV = Clairvoyance
 if CV.disabled then return end
 
-local Availability = { byArea = {} }
+local Availability = { byArea = {}, FAR_ABOVE = 10 }
 CV.Availability = Availability
 
 local REPEATABLE, EVENT = 1, 2   -- specialFlags bits
@@ -142,6 +142,7 @@ function Availability:ForArea(area)
         list[#list + 1] = {
           id = id, quest = q, starters = starters, level = qlevel,
           trivial = Core.UI.Difficulty(qlevel, level) == Core.UI.C.trivial,
+          farAbove = qlevel >= level + Availability.FAR_ABOVE,   -- e.g. a level-60 quest open from level 1
           repeatable = flagSet(q.specialFlags, REPEATABLE),
         }
       end

@@ -48,6 +48,9 @@ CV:OnReady(function()
   list:Toggle("Low-level quests", "Also show quests far below your level (grey \"!\").",
     function() return CV.db.showTrivial end,
     function(on) CV.db.showTrivial = on CV:Send("FILTERS_CHANGED", "available") end)
+  list:Toggle("Quests far above your level", "Also show quests 10 or more levels above you.",
+    function() return CV.db.showFarAbove end,
+    function(on) CV.db.showFarAbove = on CV:Send("FILTERS_CHANGED", "available") end)
 
   page:SetScript("OnShow", function() list:Refresh() end)
   CV.settingsPage, CV.settingsList = page, list
