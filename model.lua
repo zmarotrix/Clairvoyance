@@ -137,6 +137,7 @@ local function build(questId)
     level = entry.level or (quest and quest.level), complete = entry.complete, logIndex = entry.logIndex,
     zone = quest and quest.zoneOrSort and quest.zoneOrSort > 0 and quest.zoneOrSort or nil,
     known = quest ~= nil, objectives = {}, turnins = {}, item = specialItem(entry, quest),
+    levelless = CV.Availability and CV.Availability.Levelless(quest) or false,
     party = Core.Comms and Core.Comms:GetParty(questId) or {},
   }
   for i, live in ipairs(entry.objectives) do

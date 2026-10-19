@@ -56,7 +56,7 @@ local function questColor(id) return Core.Colors:ForQuest(id) end
 
 local function levelColor(m)
   local level = m.level or 0
-  if level <= 0 then return C.muted end
+  if level <= 0 or m.levelless then return C.muted end
   return UI.Difficulty(level, UnitLevel("player") or 1)
 end
 
@@ -291,7 +291,7 @@ local function fillRow(row, m, valuesOnly)
   row.edge:SetColor(c)
   local lc = levelColor(m)
   row.level:SetTextColor(lc[1], lc[2], lc[3])
-  row.level:SetText(m.level and m.level > 0 and m.level or "")
+  row.level:SetText(m.levelless and "–" or (m.level and m.level > 0 and m.level or ""))
   row.title:SetTextColor(lc[1], lc[2], lc[3])
   row.title:SetText(m.complete == "failed" and (m.title .. " (failed)") or m.title)
   if m.complete == "failed" then row.title:SetTextColor(C.impossible[1], C.impossible[2], C.impossible[3]) end

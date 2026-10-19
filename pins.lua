@@ -63,6 +63,27 @@ end
 -- Building
 -------------------------------------------------------------------------------------------
 
+-------------------------------------------------------------------------------------------
+-- Hiding: shift-click any marker of a quest to hide all of its markers (saved per character)
+-------------------------------------------------------------------------------------------
+
+function CV:IsHiddenOnMap(questId) return self.char.hiddenOnMap[questId] == true end
+
+---Hides quests' markers on the map, minimap and compass (ids: a list), or shows them again.
+function CV:SetHiddenOnMap(ids, hidden)
+  for _, id in ipairs(ids) do self.char.hiddenOnMap[id] = hidden and true or nil end
+  Pins:Rebuild()
+  Pins:RebuildAvailable()
+  self:Send("HIDDEN_CHANGED")
+end
+
+local function hideQuestPin(pin) CV:SetHiddenOnMap({ pin.quest }, true) end
+local function hideGiverPin(pin)
+  local ids = {}
+  for _, e in ipairs(pin.available or {}) do ids[#ids + 1] = e.id end
+  CV:SetHiddenOnMap(ids, true)
+end
+
 local function addTarget(list, target, spec)
   local spawns = spawnsOf(target)
   local name = CV.Model.TargetName(target)
@@ -72,7 +93,7 @@ local function addTarget(list, target, spec)
         list[#list + 1] = {
           area = area, x = p[1], y = p[2], icon = spec.icon, quest = spec.quest, layer = spec.layer, size = spec.size,
           cluster = spec.cluster, compass = spec.compass, title = name, tooltip = spec.tooltip,
-          objective = spec.objective,
+          objective = spec.objective, onShiftClick = hideQuestPin, shiftHint = "Shift-click: hide this quest on the map",
         }
       end
     end
@@ -80,7 +101,7 @@ local function addTarget(list, target, spec)
 end
 
 local function buildQuest(questId)
-  local m = CV.Model:Get(questId)
+  local m = not CV:IsHiddenOnMap(questId) and CV.Model:Get(questId) or nil
   local objectives, turnins = {}, {}
   if m then
     if m.complete ~= true then
@@ -139,9 +160,9 @@ local function availableTooltip(entries)
     tt:AddLine(pin.title or "?", 1, 1, 1)
     local level = Core.Player.level or 1
     for _, e in ipairs(entries) do
-      local c = UI.Difficulty(e.level, level)
+      local c = e.levelless and UI.C.text or UI.Difficulty(e.level, level)
       local name = Core.DB:Name("quests", e.id) or ("Quest " .. e.id)
-      tt:AddLine(string.format("[%d] %s%s", e.level, name, e.repeatable and "  (repeatable)" or ""), c[1], c[2], c[3])
+      tt:AddLine(string.format("[%s] %s%s", e.levelless and "–" or e.level, name, e.repeatable and "  (repeatable)" or ""), c[1], c[2], c[3])
     end
     local f = UI.C.faint
     tt:AddLine("Available quests", f[1], f[2], f[3])
@@ -158,7 +179,7 @@ function Pins:RebuildAvailable()
   for _, area in ipairs(CV.Availability:Areas()) do
     local givers, order = {}, {}
     for _, e in ipairs(CV.Availability:ForArea(area)) do
-      if (CV.db.showTrivial or not e.trivial) and (CV.db.showFarAbove or not e.farAbove) then
+      if (CV.db.showTrivial or not e.trivial) and (CV.db.showFarAbove or not e.farAbove) and not CV:IsHiddenOnMap(e.id) then
         for _, starter in ipairs(e.starters) do
           local key = starter.kind .. starter.id
           if not givers[key] then
@@ -186,6 +207,8 @@ function Pins:RebuildAvailable()
             area = area, x = p[1], y = p[2], layer = 4, size = 16, title = name, tooltip = tooltip,
             icon = allTrivial and "exclaimGrey" or (allRepeatable and "exclaimDaily" or "exclaim"),
             available = g.entries,   -- no highlight group: hovering a giver doesn't dim the map
+            onShiftClick = hideGiverPin,
+            shiftHint = #g.entries > 1 and "Shift-click: hide these quests on the map" or "Shift-click: hide this quest on the map",
           }
         end
       end

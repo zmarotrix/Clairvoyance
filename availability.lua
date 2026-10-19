@@ -14,7 +14,14 @@ local DB = NorgannonDB
 local CV = Clairvoyance
 if CV.disabled then return end
 
-local Availability = { byArea = {}, FAR_ABOVE = 10 }
+local Availability = { byArea = {}, FAR_ABOVE = 10, LEVELLESS_GAP = 20 }
+
+---A quest whose level is far beyond its minimum (e.g. level 60, open from level 1) has no real
+---level: WoW Forever uses that for quests anyone can do. It is never trivial or too high.
+function Availability.Levelless(q)
+  local level = q and q.level
+  return level ~= nil and level > 0 and level - (q.minLevel or 1) >= Availability.LEVELLESS_GAP
+end
 CV.Availability = Availability
 
 local REPEATABLE, EVENT = 1, 2   -- specialFlags bits
@@ -138,11 +145,13 @@ function Availability:ForArea(area)
         if friendly(DB:Get("objects", obj)) then starters[#starters + 1] = { kind = "objects", id = obj } end
       end
       if #starters > 0 then
-        local qlevel = (q.level and q.level > 0) and q.level or level
+        local levelless = Availability.Levelless(q)
+        local qlevel = (q.level and q.level > 0 and not levelless) and q.level or level
         list[#list + 1] = {
           id = id, quest = q, starters = starters, level = qlevel,
-          trivial = Core.UI.Difficulty(qlevel, level) == Core.UI.C.trivial,
-          farAbove = qlevel >= level + Availability.FAR_ABOVE,   -- e.g. a level-60 quest open from level 1
+          levelless = levelless,
+          trivial = not levelless and Core.UI.Difficulty(qlevel, level) == Core.UI.C.trivial,
+          farAbove = not levelless and qlevel >= level + Availability.FAR_ABOVE,
           repeatable = flagSet(q.specialFlags, REPEATABLE),
         }
       end
