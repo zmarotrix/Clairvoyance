@@ -130,6 +130,9 @@ end
 
 ---Answers the welcome: the scope, then the preset (or the global settings as they are).
 function Welcome.Finish()
+  Welcome.finished = true
+  CV.charData.welcomed = true      -- first: whatever happens below, the question was answered
+  CV.charData.welcomeLater = nil
   if scope == "global" then CV:UseGlobal(true) elseif CV:UsesGlobal() then CV:UseGlobal(false) end
   if keep then
     for k in pairs(NONE) do CV.db.auto[k] = auto[k] and true or false end
@@ -219,9 +222,14 @@ local function build()
   end)
   win.start:SetSize(150, 22)
   win.start:SetPoint("RIGHT", -10, 0)
-  win.later = UI.Button(win.footer, "Decide later", "quiet", function()
-    Welcome.later = true
-    win:Hide()
+  win.later = UI.Button(win.footer, "Decide later", "quiet", function() win:Hide() end)
+  -- closing it without Start (Decide later, the X, Escape) is "later": never again on a reload,
+  -- once more on the next login, then not at all
+  win:HookScript("OnHide", function()
+    if Welcome.finished then return end
+    local later = (CV.charData.welcomeLater or 0) + 1
+    CV.charData.welcomeLater = later
+    if later >= 2 then CV.charData.welcomed = "skipped" end
   end)
   win.later:SetSize(110, 22)
   win.later:SetPoint("RIGHT", win.start, "LEFT", -8, 0)
@@ -231,6 +239,7 @@ end
 ---Opens the welcome, starting from this character's scope, preset and automation switches.
 function Welcome:Show()
   if not win then build() end
+  Welcome.finished = false
   scope, keep = CV:UsesGlobal() and "global" or "char", false
   choice = (presetByKey(CV.db.preset) or PRESETS[2]).key
   copyAuto(CV.db.auto)
@@ -240,9 +249,23 @@ end
 Welcome.SetScope = function(value) setScope(value) end
 Welcome.Pick = function(key) pick(key) end
 
--- first run, per character: once per session until answered ("Decide later" asks again next login)
+-- first run, per character. A reload never brings it back after "later"; a fresh login asks
+-- once more (PLAYER_ENTERING_WORLD says which it was).
+local freshLogin = true
+Core:On("PLAYER_ENTERING_WORLD", "clairvoyance.welcome", function(_, isInitialLogin, isReloadingUi)
+  if isInitialLogin ~= nil or isReloadingUi ~= nil then freshLogin = isInitialLogin == true and not isReloadingUi end
+end)
+
+---Whether the welcome should open now.
+function Welcome.Due()
+  local c = CV.charData
+  if c.welcomed then return false end
+  if (c.welcomeLater or 0) > 0 then return freshLogin end
+  return true
+end
+
 CV:OnReady(function()
-  if not CV.charData.welcomed then
-    C_Timer.After(3, function() if not CV.charData.welcomed then Welcome:Show() end end)
+  if Welcome.Due() then
+    C_Timer.After(3, function() if Welcome.Due() and not (win and win:IsShown()) then Welcome:Show() end end)
   end
 end)

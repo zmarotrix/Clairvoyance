@@ -46,6 +46,11 @@ CV:OnReady(function()
     .. "with a full log and many tracked things, slower PCs can lose a few frames per second.", .1, 2, .1,
     function() return tracker().refresh end,
     function(v) tracker().refresh = v end, "%.1f s")
+  list:Dropdown("Finished quests", "Where quests ready to turn in go: where the sort puts them, or together at the top or bottom "
+    .. "(of each zone when sorted by zone).",
+    { { "inline", "Where they fall" }, { "top", "At the top" }, { "bottom", "At the bottom" } },
+    function() return tracker().finished end,
+    function(v) tracker().finished = v CV.Tracker:Layout() end)
   list:Slider("Card background", "How dark the quest cards are behind the text.", 0, 1, .05,
     function() return tracker().cardAlpha end,
     function(v) tracker().cardAlpha = v CV.Tracker:Layout() end, "%.0f%%", 100)

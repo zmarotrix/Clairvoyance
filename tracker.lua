@@ -23,9 +23,9 @@ CV.Tracker = Tracker
 local WIDTH = 300
 local MAX_HEIGHT_SHARE = .62      -- of the screen height; beyond it the list scrolls
 local MIN_LIST, GRIP = 60, 12     -- the shortest list you can drag it to; the grip's height
--- a finished quest's title: a light, bright green, well above the game's "easy" level green
--- (#40bf40) so finished and low-level quests never read alike
-local COMPLETE = { .55, 1, .55 }
+-- a finished quest's title: a vivid, bright lime green, brighter than the game's "easy" level
+-- green (#40bf40) and a different hue, so finished and low-level quests never read alike
+local COMPLETE = { .35, 1, .2 }
 local GRIP_IDLE = .35             -- the handle's opacity when the mouse isn't on it
 local REFRESH = .5                -- default seconds between distance and arrow updates (setting: tracker.refresh)
 local RESORT_AFTER = 2            -- a new nearest-first order must hold this long before rows move
@@ -458,6 +458,18 @@ local function visibleQuests()
   return list
 end
 
+-- finished quests grouped at the top or bottom of their group (setting: tracker.finished =
+-- "top" | "bottom" | "inline"); nil when it doesn't decide
+local function finishedFirst(a, b)
+  local where = CV.char.tracker.finished
+  if where ~= "top" and where ~= "bottom" then return nil end
+  local fa, fb = a.complete == true, b.complete == true
+  if fa == fb then return nil end
+  if where == "top" then return fa end
+  return fb
+end
+Tracker.FinishedFirst = finishedFirst
+
 local function sorted(list)
   local mode = CV.char.tracker.sort
   local dist = {}
@@ -467,11 +479,15 @@ local function sorted(list)
   end
   if mode == "near" then
     table.sort(list, function(a, b)
+      local f = finishedFirst(a, b)
+      if f ~= nil then return f end
       if dist[a.id] ~= dist[b.id] then return dist[a.id] < dist[b.id] end
       return a.logIndex < b.logIndex
     end)
   elseif mode == "level" then
     table.sort(list, function(a, b)
+      local f = finishedFirst(a, b)
+      if f ~= nil then return f end
       if (a.level or 0) ~= (b.level or 0) then return (a.level or 0) < (b.level or 0) end
       return a.title < b.title
     end)
@@ -479,10 +495,16 @@ local function sorted(list)
     table.sort(list, function(a, b)
       local za, zb = areaName(a.zone) or "~", areaName(b.zone) or "~"
       if za ~= zb then return za < zb end
+      local f = finishedFirst(a, b)            -- within the zone
+      if f ~= nil then return f end
       return dist[a.id] < dist[b.id]
     end)
   else
-    table.sort(list, function(a, b) return a.logIndex < b.logIndex end)
+    table.sort(list, function(a, b)
+      local f = finishedFirst(a, b)
+      if f ~= nil then return f end
+      return a.logIndex < b.logIndex
+    end)
   end
   return list
 end

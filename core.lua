@@ -44,7 +44,7 @@ local DEFAULTS = {
     auto = { accept = false, turnin = false, reward = false, gossip = false },   -- off unless you turn it on
     questLog = { levels = true, ids = false, buttons = true },
     tracker = { shown = true, sort = "near", scale = 1, view = "detailed", cardAlpha = .62, bars = true,
-      completeGreen = true, arrows = true, refresh = .5 },
+      completeGreen = true, arrows = true, refresh = .5, finished = "inline" },
     -- preset: the welcome preset these settings started from
   },
   char = {
@@ -52,7 +52,8 @@ local DEFAULTS = {
     hiddenOnMap = {},     -- questId -> true: markers hidden on the map (shift-click)
     tracked = {},         -- track anything: { key, kind, ids | category, name }, in the order added
     tracker = { collapsed = false, collapsedZones = {}, questView = {} },   -- position, height when set
-    -- useGlobal: this character uses the global settings; welcomed: the welcome has been answered
+    -- useGlobal: this character uses the global settings; welcomed: the welcome was answered
+    -- (true) or dismissed twice ("skipped"); welcomeLater: times it was closed without an answer
   },
 }
 
