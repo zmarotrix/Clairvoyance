@@ -2,10 +2,13 @@
 -- presets and the four automation switches. "Start questing" applies them; "Decide later" keeps
 -- everything as it is and asks again next login. /clair welcome opens it any time.
 --
---   Helper   (recommended) map pins, available quests, tracker, compass, tooltips; no automation
---   Guided   Helper plus every automation switch
---   Minimal  tracker and tooltips; objective and turn-in pins only (no available quests, no
---            compass), compact quests; no automation
+--   Simple      your quests only: tracker (compact), tooltips, objective and turn-in pins. No
+--               available quests, compass, gathering, rares or automation
+--   Balanced    (recommended) adds available quests, the compass and detailed quest cards
+--   Everything  every feature on: herbs, ore, fishing and rares on the map, rare alerts, quest IDs
+--               in the log, and the safe automation (accept, turn in, skip gossip; never picks a
+--               reward for you)
+-- No preset is a guide: nothing ever tells you which quest to do next.
 
 local Core = NorgannonCore
 local CV = Clairvoyance
@@ -17,19 +20,21 @@ local Welcome = {}
 CV.Welcome = Welcome
 
 local NONE = { accept = false, turnin = false, reward = false, gossip = false }
-local ALL = { accept = true, turnin = true, reward = true, gossip = true }
+local SAFE = { accept = true, turnin = true, reward = false, gossip = true }   -- rewards stay your choice
 
 local PRESETS = {
-  { key = "helper", name = "Helper", tag = "Recommended",
-    points = { "Quest pins on map and minimap", "Available quests and the compass", "Tracker and tooltips", "No automation" },
-    auto = NONE, available = true, compass = true, view = "detailed" },
-  { key = "guided", name = "Guided", tag = "Hands-free questing",
-    points = { "Everything in Helper", "Accepts and turns in quests", "Picks rewards for you", "Skips gossip to the quest" },
-    auto = ALL, available = true, compass = true, view = "detailed" },
-  { key = "minimal", name = "Minimal", tag = "Just the essentials",
-    points = { "Tracker and tooltips", "Pins for your quests only", "No compass, no automation" },
-    auto = NONE, available = false, compass = false, view = "compact" },
+  { key = "simple", name = "Simple", tag = "Just your quests",
+    points = { "Compact tracker and tooltips", "Pins for the quests you have", "Nothing else on screen" },
+    auto = NONE, available = false, compass = false, view = "compact", extras = false },
+  { key = "balanced", name = "Balanced", tag = "Recommended",
+    points = { "Everything in Simple", "Quests you can pick up nearby", "Compass and detailed cards", "No automation" },
+    auto = NONE, available = true, compass = true, view = "detailed", extras = false },
+  { key = "everything", name = "Everything", tag = "Every feature on",
+    points = { "Everything in Balanced", "Herbs, ore and rares on the map", "Rare alerts, quest IDs", "Accepts and turns in quests" },
+    auto = SAFE, available = true, compass = true, view = "detailed", extras = true },
 }
+-- presets saved before they were renamed (0.1 builds)
+local RENAMED = { helper = "balanced", guided = "everything", minimal = "simple" }
 Welcome.PRESETS = PRESETS
 
 local AUTO_ROWS = {
@@ -40,16 +45,23 @@ local AUTO_ROWS = {
 }
 Welcome.AUTO_ROWS = AUTO_ROWS
 
-local function presetByKey(key) for _, p in ipairs(PRESETS) do if p.key == key then return p end end end
+local function presetByKey(key)
+  key = RENAMED[key] or key
+  for _, p in ipairs(PRESETS) do if p.key == key then return p end end
+end
 
 ---Applies a preset and automation switches (auto: { accept, turnin, reward, gossip }).
 function Welcome.Apply(key, auto)
-  local p = presetByKey(key) or PRESETS[1]
+  local p = presetByKey(key) or PRESETS[2]
   auto = auto or p.auto
   for k in pairs(NONE) do CV.db.auto[k] = auto[k] and true or false end
   local f = CV.db.filters
   f.objectives, f.turnins, f.available = true, true, p.available
   CV.db.tooltips = true
+  -- the extras: gathering (chips show only with the profession), rares, rare alerts, quest IDs
+  f.herbs, f.mines, f.fish, f.rares = p.extras, p.extras, p.extras, p.extras
+  CV.db.rareAlert = p.extras
+  CV.db.questLog.ids = p.extras
   CV.Tracker:SetShown(true)
   CV.char.tracker.view = p.view
   wipe(CV.char.tracker.questView)
@@ -58,6 +70,7 @@ function Welcome.Apply(key, auto)
   CV.db.preset = p.key
   CV.db.welcomed = true
   CV:Send("FILTERS_CHANGED", "available")
+  CV:Send("FILTERS_CHANGED", "rares")
   CV.Tracker:Layout()
   if CV.settingsList then CV.settingsList:Refresh() end
 end
@@ -67,7 +80,7 @@ end
 -------------------------------------------------------------------------------------------
 
 local win
-local choice, auto = "helper", {}
+local choice, auto = "balanced", {}
 
 local function paint()
   for _, card in ipairs(win.cards) do
@@ -164,7 +177,7 @@ end
 ---Opens the welcome, starting from the current preset and automation switches.
 function Welcome:Show()
   if not win then build() end
-  choice = CV.db.preset or "helper"
+  choice = (presetByKey(CV.db.preset) or PRESETS[2]).key
   auto = {}
   for k in pairs(NONE) do auto[k] = CV.db.auto[k] and true or false end
   paint()

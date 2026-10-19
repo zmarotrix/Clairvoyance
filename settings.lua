@@ -58,7 +58,7 @@ CV:OnReady(function()
     function() return CV.db.auto.reward end, function(on) CV.db.auto.reward = on end)
   list:Toggle("Skip gossip", "At an NPC with quests for you, goes straight to the quest (only what the switches above allow).",
     function() return CV.db.auto.gossip end, function(on) CV.db.auto.gossip = on end)
-  list:Buttons("Presets", "The first-run welcome: Helper, Guided or Minimal.", { { "Open the welcome", function() CV.Welcome:Show() end } })
+  list:Buttons("Presets", "The first-run welcome: Simple, Balanced or Everything.", { { "Open the welcome", function() CV.Welcome:Show() end } })
 
   list:Header("Quest log")
   list:Toggle("Levels in the quest log", "Quest titles start with their level: [12] Cutting Teeth.",
