@@ -13,6 +13,13 @@ CV:OnReady(function()
   page:Hide()
   local list = UI.SettingsList(page)
 
+  list:Header("Settings")
+  list:Dropdown("Settings for", "This character's own settings, or one global set shared by every character that picks it. "
+    .. "Switching to global uses the global settings if they exist, otherwise starts them from this character's.",
+    { { "char", "This character" }, { "global", "All characters" } },
+    function() return CV:UsesGlobal() and "global" or "char" end,
+    function(v) CV:UseGlobal(v == "global") end)
+
   list:Header("Quest tracker")
   list:Toggle("Show the quest tracker", "Blizzard's tracker is hidden while Clairvoyance's is on.",
     function() return tracker().shown end, function(on) CV.Tracker:SetShown(on) end)
@@ -58,7 +65,6 @@ CV:OnReady(function()
     function() return CV.db.auto.reward end, function(on) CV.db.auto.reward = on end)
   list:Toggle("Skip gossip", "At an NPC with quests for you, goes straight to the quest (only what the switches above allow).",
     function() return CV.db.auto.gossip end, function(on) CV.db.auto.gossip = on end)
-  list:Buttons("Presets", "The first-run welcome: Simple, Balanced or Everything.", { { "Open the welcome", function() CV.Welcome:Show() end } })
 
   list:Header("Quest log")
   list:Toggle("Levels in the quest log", "Quest titles start with their level: [12] Cutting Teeth.",

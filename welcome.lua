@@ -1,6 +1,9 @@
--- The first-run welcome (design/suite/clairvoyance.js): "How much help would you like?" Three
--- presets and the four automation switches. "Start questing" applies them; "Decide later" keeps
--- everything as it is and asks again next login. /clair welcome opens it any time.
+-- The first-run welcome (design/suite/clairvoyance.js), once per character: "How much help would
+-- you like?" Whether this character keeps its own settings or uses the global ones, three presets
+-- and the four automation switches. "Start questing" applies them once; after that the settings
+-- are yours to change ("Decide later" asks again next login; /clair welcome runs it again).
+-- Choosing All characters when global settings exist uses them as they are, unless you pick a
+-- preset to replace them.
 --
 --   Simple      your quests only: tracker (compact), tooltips, objective and turn-in pins. No
 --               available quests, compass, gathering, rares or automation
@@ -62,17 +65,13 @@ function Welcome.Apply(key, auto)
   f.herbs, f.mines, f.fish, f.rares = p.extras, p.extras, p.extras, p.extras
   CV.db.rareAlert = p.extras
   CV.db.questLog.ids = p.extras
-  CV.Tracker:SetShown(true)
-  CV.char.tracker.view = p.view
+  CV.db.tracker.shown = true
+  CV.db.tracker.view = p.view
   wipe(CV.char.tracker.questView)
-  if CV.Tracker.frame then CV.Tracker.frame.view:Select(p.view, true) end
   Core.Compass:SetShown(p.compass)
   CV.db.preset = p.key
-  CV.db.welcomed = true
-  CV:Send("FILTERS_CHANGED", "available")
-  CV:Send("FILTERS_CHANGED", "rares")
-  CV.Tracker:Layout()
-  if CV.settingsList then CV.settingsList:Refresh() end
+  CV.charData.welcomed = true
+  CV:SettingsChanged()
 end
 
 -------------------------------------------------------------------------------------------
@@ -81,25 +80,68 @@ end
 
 local win
 local choice, auto = "balanced", {}
+local scope, keep = "char", false   -- keep: use the existing global settings as they are
+
+local function copyAuto(from)
+  auto = {}
+  for k in pairs(NONE) do auto[k] = from and from[k] and true or false end
+end
 
 local function paint()
   for _, card in ipairs(win.cards) do
-    local selected = card.key == choice
+    local selected = not keep and card.key == choice
     card.box:Set(selected and UI.Accent("clairvoyance") or C.lineStrong, C.inset)
     card.name:SetTextColor(selected and C.text[1] or C.muted[1], selected and C.text[2] or C.muted[2], selected and C.text[3] or C.muted[3])
+    card:SetAlpha(keep and .55 or 1)
   end
   for _, row in ipairs(win.rows) do row.toggle:SetOn(auto[row.key], true) end
+  win.scope:Select(scope, true)
+  local exists, from = CV:GlobalSettings()
+  if scope == "char" then
+    win.scopeNote:SetText("Settings just for this character. You can switch to global ones later in the settings.")
+  elseif keep then
+    win.scopeNote:SetText("Global settings already exist" .. (from and (" (set up on " .. from .. ")") or "")
+      .. ". They'll be used as they are; pick a preset only to replace them.")
+  else
+    win.scopeNote:SetText(exists and "This preset will replace your global settings for every character that uses them."
+      or "New global settings, shared by every character that picks All characters.")
+  end
+  win.start.label:SetText(keep and "Use global settings" or "Start questing")
 end
 
 local function pick(key)
-  choice = key
-  auto = {}
-  for k, v in pairs(presetByKey(key).auto) do auto[k] = v end
+  choice, keep = key, false
+  copyAuto(presetByKey(key).auto)
   paint()
 end
 
+local function setScope(value)
+  scope = value
+  local exists = CV:GlobalSettings()
+  if scope == "global" and exists then
+    keep = true
+    copyAuto(CV.account.global.auto)
+  else
+    keep = false
+    copyAuto(presetByKey(choice).auto)
+  end
+  paint()
+end
+
+---Answers the welcome: the scope, then the preset (or the global settings as they are).
+function Welcome.Finish()
+  if scope == "global" then CV:UseGlobal(true) elseif CV:UsesGlobal() then CV:UseGlobal(false) end
+  if keep then
+    for k in pairs(NONE) do CV.db.auto[k] = auto[k] and true or false end
+    CV.charData.welcomed = true
+    CV:SettingsChanged()
+  else
+    Welcome.Apply(choice, auto)
+  end
+end
+
 local function build()
-  win = UI.Window({ name = "ClairvoyanceWelcome", addon = "clairvoyance", title = "Welcome", width = 640, height = 470, footer = true })
+  win = UI.Window({ name = "ClairvoyanceWelcome", addon = "clairvoyance", title = "Welcome", width = 640, height = 510, footer = true })
   win:SetAccent("clairvoyance")
   local body = win.body
   local h = UI.Text(body, "title", 22, C.gold)
@@ -107,14 +149,26 @@ local function build()
   h:SetText("How much help would you like?")
   local p = UI.Text(body, "body", 13, C.muted)
   p:SetPoint("TOPLEFT", h, "BOTTOMLEFT", 0, -4)
-  p:SetText("Pick a starting point. Every option can be changed later in Clairvoyance's settings (/clair).")
+  p:SetText("A starting point for this character. Afterwards, every option is yours to change (/clair).")
+
+  -- whose settings: this character's own, or the global set
+  local label = UI.Text(body, "body", 14, C.text)
+  label:SetPoint("TOPLEFT", 18, -66)
+  label:SetText("Settings for")
+  win.scope = UI.Segmented(body, { { key = "char", label = "This character" }, { key = "global", label = "All characters" } }, setScope)
+  win.scope:ApplyAccent(UI.Accent("clairvoyance"))
+  win.scope:SetPoint("LEFT", label, "RIGHT", 10, 0)
+  win.scopeNote = UI.Text(body, "body", 12, C.faint)
+  win.scopeNote:SetPoint("TOPLEFT", label, "BOTTOMLEFT", 0, -10)
+  win.scopeNote:SetWidth(640 - 36)
+  win.scopeNote:SetJustifyH("LEFT")
 
   win.cards = {}
   local cardW = math.floor((640 - 36 - 20) / 3)
   for i, preset in ipairs(PRESETS) do
     local card = CreateFrame("Button", nil, body)
     card:SetSize(cardW, 132)
-    card:SetPoint("TOPLEFT", 18 + (i - 1) * (cardW + 10), -62)
+    card:SetPoint("TOPLEFT", 18 + (i - 1) * (cardW + 10), -116)
     card.key = preset.key
     card.box = UI.Box(card, "BACKGROUND", 0)
     card.tag = UI.Text(card, "body", 11, UI.Accent("clairvoyance"))
@@ -137,8 +191,8 @@ local function build()
   end
 
   local pane = UI.Pane(body)
-  pane:SetPoint("TOPLEFT", 18, -206)
-  pane:SetPoint("TOPRIGHT", -18, -206)
+  pane:SetPoint("TOPLEFT", 18, -258)
+  pane:SetPoint("TOPRIGHT", -18, -258)
   pane:SetHeight(#AUTO_ROWS * 40 + 10)
   win.rows = {}
   for i, def in ipairs(AUTO_ROWS) do
@@ -160,10 +214,10 @@ local function build()
 
   win.footerText:SetText("Automation is off unless you turn it on.")
   win.start = UI.Button(win.footer, "Start questing", "primary", function()
-    Welcome.Apply(choice, auto)
+    Welcome.Finish()
     win:Hide()
   end)
-  win.start:SetSize(130, 22)
+  win.start:SetSize(150, 22)
   win.start:SetPoint("RIGHT", -10, 0)
   win.later = UI.Button(win.footer, "Decide later", "quiet", function()
     Welcome.later = true
@@ -174,17 +228,21 @@ local function build()
   Welcome.frame = win
 end
 
----Opens the welcome, starting from the current preset and automation switches.
+---Opens the welcome, starting from this character's scope, preset and automation switches.
 function Welcome:Show()
   if not win then build() end
+  scope, keep = CV:UsesGlobal() and "global" or "char", false
   choice = (presetByKey(CV.db.preset) or PRESETS[2]).key
-  auto = {}
-  for k in pairs(NONE) do auto[k] = CV.db.auto[k] and true or false end
+  copyAuto(CV.db.auto)
   paint()
   win:Show()
 end
+Welcome.SetScope = function(value) setScope(value) end
+Welcome.Pick = function(key) pick(key) end
 
--- first run: once per session until a preset is chosen ("Decide later" asks again next login)
+-- first run, per character: once per session until answered ("Decide later" asks again next login)
 CV:OnReady(function()
-  if not CV.db.welcomed then C_Timer.After(3, function() if not CV.db.welcomed then Welcome:Show() end end) end
+  if not CV.charData.welcomed then
+    C_Timer.After(3, function() if not CV.charData.welcomed then Welcome:Show() end end)
+  end
 end)

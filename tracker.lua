@@ -914,6 +914,15 @@ CV:OnReady(function()
 end)
 
 CV:Listen("MODEL_UPDATED", "tracker", function() Tracker:Layout() end)
+-- another set of settings (a scope switch or a preset): the tracker's look follows
+CV:Listen("SETTINGS_CHANGED", "tracker", function()
+  if not f then return end
+  local t = CV.char.tracker
+  f:SetScale(t.scale or 1)
+  f.view:Select(t.view, true)
+  f.sort:Select(t.sort, true)
+  Tracker:SetShown(t.shown)
+end)
 CV:Listen("PINS_UPDATED", "tracker", function() Tracker:Refresh(InCombatLockdown()) end)
 Core:Listen("NORGANNON_QUEST_COLOR_CHANGED", "clairvoyance.tracker", function() Tracker:Refresh(true) end)
 Core:On("PLAYER_REGEN_ENABLED", "clairvoyance.tracker", function() if layoutPending then Tracker:Layout() end end)

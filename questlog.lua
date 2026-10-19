@@ -131,6 +131,8 @@ CV:OnReady(function()
   QL:UpdateBar()
 end)
 
+CV:Listen("SETTINGS_CHANGED", "questlog", function() QL:Refresh() end)
+
 ---Redraws the log after a setting changes.
 function QL:Refresh()
   if G("QuestLog_Update") and G("QuestLogFrame") and G("QuestLogFrame"):IsShown() then G("QuestLog_Update")()

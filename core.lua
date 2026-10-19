@@ -21,11 +21,20 @@ CV.PREFIX = "|cff4fe3cfClairvoyance|r"
 function CV:Print(msg) Core:Print(msg, self.PREFIX) end
 
 -------------------------------------------------------------------------------------------
--- Saved settings: account-wide (ClairvoyanceDB) and per character (ClairvoyanceCharDB)
+-- Saved settings. Settings (filters, automation, tooltips, the quest log, how the tracker looks)
+-- are either this character's own or one global set shared by every character that chooses it
+-- (ClairvoyanceCharDB.useGlobal). Character data always stays with the character: tracked
+-- things, hidden quests, the tracker's position, length and collapsed quests.
+--
+--   ClairvoyanceDB      = { global = settings | nil, globalFrom = "Name", legacy = 0.1 account settings }
+--   ClairvoyanceCharDB  = { settings, useGlobal, welcomed, hidden, hiddenOnMap, tracked, tracker = layout }
+--
+-- CV.db is the settings in use; CV.char the character's data. CV.char.tracker reads and writes
+-- the look-of-the-tracker keys (TRACKER_SETTINGS) in CV.db.tracker, the rest in the character's.
 -------------------------------------------------------------------------------------------
 
 local DEFAULTS = {
-  account = {
+  settings = {
     filters = { objectives = true, turnins = true, available = true, tracking = true, herbs = false, mines = false, fish = false,
       rares = false },
     showTrivial = false,
@@ -34,17 +43,22 @@ local DEFAULTS = {
     rareAlert = true,     -- a quiet chat line when a rare shows up on your nameplates
     auto = { accept = false, turnin = false, reward = false, gossip = false },   -- off unless you turn it on
     questLog = { levels = true, ids = false, buttons = true },
-    -- welcomed: a preset was chosen in the welcome; preset: which one
+    tracker = { shown = true, sort = "near", scale = 1, view = "detailed", cardAlpha = .62, bars = true,
+      completeGreen = true, arrows = true, refresh = .5 },
+    -- preset: the welcome preset these settings started from
   },
   char = {
     hidden = {},          -- questId -> true: hidden from the tracker
     hiddenOnMap = {},     -- questId -> true: markers hidden on the map (shift-click)
     tracked = {},         -- track anything: { key, kind, ids | category, name }, in the order added
-    tracker = { shown = true, sort = "near", collapsed = false, scale = 1, view = "detailed", collapsedZones = {},
-      questView = {}, cardAlpha = .62, bars = true, completeGreen = true,
-      arrows = true, refresh = .5 },
+    tracker = { collapsed = false, collapsedZones = {}, questView = {} },   -- position, height when set
+    -- useGlobal: this character uses the global settings; welcomed: the welcome has been answered
   },
 }
+
+local TRACKER_SETTINGS = {}
+for k in pairs(DEFAULTS.settings.tracker) do TRACKER_SETTINGS[k] = true end
+CV.TRACKER_SETTINGS = TRACKER_SETTINGS
 
 local function fill(target, defaults)
   for k, v in pairs(defaults) do
@@ -55,6 +69,103 @@ local function fill(target, defaults)
     end
   end
   return target
+end
+
+local function copy(t)
+  if type(t) ~= "table" then return t end
+  local out = {}
+  for k, v in pairs(t) do out[k] = copy(v) end
+  return out
+end
+CV.Copy = copy
+
+local LEGACY_KEYS = { "filters", "showTrivial", "showFarAbove", "tooltips", "rareAlert", "auto", "questLog", "preset", "welcomed" }
+
+-- 0.1 builds kept settings account-wide and the tracker's look per character: move them into this
+-- character's own settings (each character takes the old account settings once)
+local function migrate(account, char)
+  if not account.legacy then
+    local legacy
+    for _, k in ipairs(LEGACY_KEYS) do
+      if account[k] ~= nil then
+        legacy = legacy or {}
+        legacy[k], account[k] = account[k], nil
+      end
+    end
+    account.legacy = legacy or false
+  end
+  if char.settings then return end
+  local settings = {}
+  if account.legacy then
+    for k, v in pairs(account.legacy) do if k ~= "welcomed" then settings[k] = copy(v) end end
+    if char.welcomed == nil and account.legacy.welcomed then char.welcomed = true end
+  end
+  settings.tracker = settings.tracker or {}
+  for k in pairs(TRACKER_SETTINGS) do
+    if char.tracker and char.tracker[k] ~= nil then settings.tracker[k], char.tracker[k] = char.tracker[k], nil end
+  end
+  char.settings = settings
+end
+
+-- CV.char.tracker: the tracker's look from the settings in use, its layout from the character
+CV.Migrate = function(a, c) return migrate(a, c) end
+
+local function trackerView(char)
+  return setmetatable({}, {
+    __index = function(_, k)
+      if TRACKER_SETTINGS[k] then return CV.db.tracker[k] end
+      return char.tracker[k]
+    end,
+    __newindex = function(_, k, v)
+      if TRACKER_SETTINGS[k] then CV.db.tracker[k] = v else char.tracker[k] = v end
+    end,
+  })
+end
+
+local function bind(account, char)
+  CV.account, CV.charData = account, char
+  if char.useGlobal and account.global then
+    CV.db = fill(account.global, DEFAULTS.settings)
+  else
+    char.useGlobal = nil
+    CV.db = fill(char.settings, DEFAULTS.settings)
+  end
+  CV.char = setmetatable({ tracker = trackerView(char) }, { __index = char, __newindex = char })
+end
+
+---Whether global settings exist, and the character that set them up.
+function CV:GlobalSettings()
+  local g = self.account and self.account.global
+  return g ~= nil, self.account and self.account.globalFrom
+end
+
+function CV:UsesGlobal() return self.charData.useGlobal == true end
+
+---Switches this character between its own settings and the global ones. Switching to global
+---uses the global settings if they exist, else starts them from this character's; switching
+---back uses this character's own (a copy of the global ones if it never had any).
+function CV:UseGlobal(on)
+  local account, char = self.account, self.charData
+  if on then
+    if not account.global then
+      account.global = copy(char.settings)
+      account.globalFrom = UnitName("player")
+    end
+    char.useGlobal = true
+  else
+    if not char.settings or next(char.settings) == nil then char.settings = copy(account.global or {}) end
+    char.useGlobal = nil
+  end
+  bind(account, char)
+  self:SettingsChanged()
+end
+
+---Everything re-reads the settings in use (after a switch or a preset).
+function CV:SettingsChanged()
+  if not self.ready then return end
+  self:Send("SETTINGS_CHANGED")
+  for key in pairs(self.db.filters) do self:Send("FILTERS_CHANGED", key) end
+  if self.settingsList then self.settingsList:Refresh() end
 end
 
 -------------------------------------------------------------------------------------------
@@ -80,9 +191,10 @@ Core:On("ADDON_LOADED", CV, function(_, name)
   Core:Off("ADDON_LOADED", CV)
   -- rawget: on the first run the saved variables don't exist yet
   local account, char = rawget(_G, "ClairvoyanceDB"), rawget(_G, "ClairvoyanceCharDB")
-  ClairvoyanceDB = fill(type(account) == "table" and account or {}, DEFAULTS.account)
+  ClairvoyanceDB = type(account) == "table" and account or {}
   ClairvoyanceCharDB = fill(type(char) == "table" and char or {}, DEFAULTS.char)
-  CV.db, CV.char = ClairvoyanceDB, ClairvoyanceCharDB
+  migrate(ClairvoyanceDB, ClairvoyanceCharDB)
+  bind(ClairvoyanceDB, ClairvoyanceCharDB)
 end)
 
 local function becomeReady()
@@ -152,7 +264,7 @@ SlashCmdList["CLAIRVOYANCE"] = function(msg)
     CV:Print(string.format("%s (%d): %s", name, why, ok and "available" or ("not available: " .. tostring(reason))))
   else
     CV:Print("/clair - settings")
-    CV:Print("/clair welcome - the presets and automation switches")
+    CV:Print("/clair welcome - run this character's first-time setup again")
     CV:Print("/clair why <questId> - is a quest available, and if not, why")
   end
 end
