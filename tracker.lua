@@ -62,6 +62,15 @@ local function questColor(id) return Core.Colors:ForQuest(id) end
 
 Tracker.COMPLETE = COMPLETE
 
+---The level badge's width for a number this wide: at least 22, and with the same parity as the
+---number's width, so the margin on each side is a whole pixel and one digit centres as well as two.
+function Tracker.BadgeWidth(textWidth)
+  local tw = math.floor((textWidth or 0) + .5)
+  local w = math.max(22, tw + 12)
+  if (w - tw) % 2 == 1 then w = w + 1 end
+  return w
+end
+
 ---pfQuest's progress colour: red at none, yellow halfway, green when done (lightened to read on
 ---the dark cards). nil when progress colours are off.
 function Tracker.ProgressColor(current, required)
@@ -254,7 +263,7 @@ local function newRow()
   row.level = UI.Text(row.badge, "bold", 12)
   -- optically centred: digits sit low in the font's line box, and the usual drop shadow would
   -- make them heavier on one side of such a small badge
-  row.level:SetPoint("CENTER", 1, 1)   -- digits' right-side spacing reads as left of centre
+  row.level:SetPoint("CENTER", 1, 0)   -- digits' right-side spacing reads as left of centre
   row.level:SetJustifyH("CENTER")
   UI.Glow(row.level)   -- the same soft glow as the quest names (no drop shadow)
   row.title = UI.Text(row, "title", 14)
@@ -335,8 +344,7 @@ local function fillRow(row, m, valuesOnly)
   row.level:SetTextColor(bright[1], bright[2], bright[3])
   row.badge.border:SetColor(lc, .8)
   row.badge.fill:SetColor(UI.Mix({ .06, .05, .035 }, lc, .3), .95)
-  -- an even width with an even margin, so the number lands on whole pixels
-  row.badge:SetWidth(math.max(22, 2 * math.floor((row.level:GetStringWidth() + 12) / 2 + .5)))
+  row.badge:SetWidth(Tracker.BadgeWidth(row.level:GetStringWidth()))
   row.badge:SetShown(levelText ~= "")
   row.title:SetTextColor(lc[1], lc[2], lc[3])
   row.title:SetText(m.complete == "failed" and (m.title .. " (failed)") or m.title)
