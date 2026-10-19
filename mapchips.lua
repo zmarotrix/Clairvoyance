@@ -6,10 +6,11 @@ local CV = Clairvoyance
 if CV.disabled then return end
 local UI = Core.UI
 
--- the categories built so far (available quests, tracking, gathering and rares join later)
+-- the categories built so far (tracking, gathering and rares join later)
 local CHIPS = {
   { key = "objectives", label = "Objectives", color = UI.Accent("clairvoyance") },
   { key = "turnins", label = "Turn-ins", color = UI.C.gold },
+  { key = "available", label = "Available", color = UI.C.fair },
 }
 
 local bar

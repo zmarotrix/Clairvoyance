@@ -12,7 +12,7 @@ local HBD = LibStub("HereBeDragons-NorgannonCore-2.0")
 local Pins = { objectives = {}, turnins = {} }   -- questId -> { pin, ... }
 CV.Pins = Pins
 
-local OWNER_OBJECTIVES, OWNER_TURNINS = "clairvoyance.objectives", "clairvoyance.turnins"
+local OWNER_OBJECTIVES, OWNER_TURNINS, OWNER_AVAILABLE = "clairvoyance.objectives", "clairvoyance.turnins", "clairvoyance.available"
 
 local function spawnsOf(target)
   if target.kind == "spawns" then return target.spawns end
@@ -128,7 +128,75 @@ function Pins:Rebuild(questId)
 end
 
 CV:Listen("MODEL_UPDATED", "pins", function(_, questId) Pins:Rebuild(questId) end)
-CV:Listen("FILTERS_CHANGED", "pins", function() publish() end)
+
+-------------------------------------------------------------------------------------------
+-- Available quests: one "!" per giver, listing everything it offers. Grey when every quest is
+-- low level (shown only with the setting), blue when they are all repeatable.
+-------------------------------------------------------------------------------------------
+
+local function availableTooltip(entries)
+  return function(pin, tt)
+    tt:AddLine(pin.title or "?", 1, 1, 1)
+    local level = Core.Player.level or 1
+    for _, e in ipairs(entries) do
+      local c = UI.Difficulty(e.level, level)
+      local name = Core.DB:Name("quests", e.id) or ("Quest " .. e.id)
+      tt:AddLine(string.format("[%d] %s%s", e.level, name, e.repeatable and "  (repeatable)" or ""), c[1], c[2], c[3])
+    end
+    local f = UI.C.faint
+    tt:AddLine("Available quests", f[1], f[2], f[3])
+  end
+end
+
+function Pins:RebuildAvailable()
+  local filters = CV.db.filters
+  if not filters.available then
+    Core.Map:SetPins(OWNER_AVAILABLE, nil)
+    return
+  end
+  local pins = {}
+  for _, area in ipairs(CV.Availability:Areas()) do
+    local givers, order = {}, {}
+    for _, e in ipairs(CV.Availability:ForArea(area)) do
+      if CV.db.showTrivial or not e.trivial then
+        for _, starter in ipairs(e.starters) do
+          local key = starter.kind .. starter.id
+          if not givers[key] then
+            givers[key] = { target = starter, entries = {} }
+            order[#order + 1] = key
+          end
+          table.insert(givers[key].entries, e)
+        end
+      end
+    end
+    for _, key in ipairs(order) do
+      local g = givers[key]
+      local allTrivial, allRepeatable = true, true
+      for _, e in ipairs(g.entries) do
+        if not e.trivial then allTrivial = false end
+        if not e.repeatable then allRepeatable = false end
+      end
+      table.sort(g.entries, function(a, b) return a.level < b.level end)
+      local record = NorgannonDB:Get(g.target.kind, g.target.id)
+      local name = CV.Model.TargetName(g.target)
+      local tooltip = availableTooltip(g.entries)
+      for _, p in ipairs(record and record.spawns and record.spawns[area] or {}) do
+        if p[1] and p[1] >= 0 then
+          pins[#pins + 1] = {
+            area = area, x = p[1], y = p[2], layer = 4, size = 16, title = name, tooltip = tooltip,
+            icon = allTrivial and "exclaimGrey" or (allRepeatable and "exclaimDaily" or "exclaim"),
+            highlight = "giver:" .. key, available = g.entries,
+          }
+        end
+      end
+    end
+  end
+  Core.Map:SetPins(OWNER_AVAILABLE, pins)
+  CV:Send("AVAILABLE_PINS_UPDATED", #pins)
+end
+
+CV:Listen("AVAILABLE_UPDATED", "pins", function() Pins:RebuildAvailable() end)
+CV:Listen("FILTERS_CHANGED", "pins", function() publish() Pins:RebuildAvailable() end)
 
 -------------------------------------------------------------------------------------------
 -- Distance: the nearest unfinished objective (or the turn-in once the quest is complete)

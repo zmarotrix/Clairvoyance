@@ -11,6 +11,7 @@
 
 core.lua
 model.lua
+availability.lua
 pins.lua
 mapchips.lua
 tracker.lua

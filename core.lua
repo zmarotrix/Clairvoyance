@@ -9,10 +9,10 @@ local DB = NorgannonDB
 Clairvoyance = { addonName = ADDON or "Clairvoyance" }
 local CV = Clairvoyance
 
-if not (Core and Core:Require(1, 4)) or not (DB and DB:RequireSchema(1, 2)) then
+if not (Core and Core:Require(1, 5)) or not (DB and DB:RequireSchema(1, 2)) then
   CV.disabled = true
   C_Timer.After(5, function()
-    print("|cff4fe3cfClairvoyance|r needs NorgannonDB 1.2 and NorgannonDB Core 1.4 or newer; it is turned off.")
+    print("|cff4fe3cfClairvoyance|r needs NorgannonDB 1.2 and NorgannonDB Core 1.5 or newer; it is turned off.")
   end)
   return
 end
@@ -27,6 +27,7 @@ function CV:Print(msg) Core:Print(msg, self.PREFIX) end
 local DEFAULTS = {
   account = {
     filters = { objectives = true, turnins = true, available = true, tracking = true, gathering = false, rares = false },
+    showTrivial = false,
   },
   char = {
     hidden = {},          -- questId -> true: hidden from the tracker

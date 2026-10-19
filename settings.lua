@@ -42,6 +42,12 @@ CV:OnReady(function()
   list:Toggle("Turn-ins", "Where to hand quests in.",
     function() return CV.db.filters.turnins end,
     function(on) CV.db.filters.turnins = on CV:Send("FILTERS_CHANGED", "turnins") end)
+  list:Toggle("Available quests", "Quest givers with quests you can take now.",
+    function() return CV.db.filters.available end,
+    function(on) CV.db.filters.available = on CV:Send("FILTERS_CHANGED", "available") end)
+  list:Toggle("Low-level quests", "Also show quests far below your level (grey \"!\").",
+    function() return CV.db.showTrivial end,
+    function(on) CV.db.showTrivial = on CV:Send("FILTERS_CHANGED", "available") end)
 
   page:SetScript("OnShow", function() list:Refresh() end)
   CV.settingsPage, CV.settingsList = page, list
