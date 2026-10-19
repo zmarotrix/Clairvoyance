@@ -188,8 +188,6 @@ local function objectiveLine(row, i)
   line.bar = UI.Bar(line)
   line.bar:SetPoint("TOPLEFT", line.text, "BOTTOMLEFT", 0, -3)
   line.bar:SetWidth(WIDTH - 34)
-  line.mark = UI.Tex(line.bar, "OVERLAY", 0, { .53, .53, .53, 1 })
-  line.mark:SetSize(2, 8)
   row.lines[i] = line
   return line
 end
@@ -387,13 +385,10 @@ local function fillRow(row, m, valuesOnly)
       if hasBar then
         line.bar.accent = c
         line.bar:SetProgress(o.current or 0, o.required)
-        line.mark:SetShown(party ~= nil)
-        if party then
-          line.mark:ClearAllPoints()
-          line.mark:SetPoint("CENTER", line.bar, "LEFT", (WIDTH - 34) * math.min(1, (party.fulfilled or 0) / (party.required or 1)), 0)
-        end
+        -- the party member's progress: a round dot on your bar
+        line.bar:SetMarker(party and (party.fulfilled or 0) / (party.required or 1) or nil, UI.Mix(C.text, UI.Accent("clairvoyance"), .5))
       end
-      local h = hasBar and 24 or 18
+      local h = hasBar and 25 or 18
       line:SetHeight(h)
       line:Show()
       y = y - h
@@ -535,7 +530,7 @@ function Tracker:Draw(quests)
     end
   end
   local compact = CV.char.tracker.view == "compact"
-  local gap = compact and 3 or 6
+  local gap = compact and 2 or 3
   local y, zone, g, used = 0, nil, 0, 0
   for _, m in ipairs(quests) do
     local z = byZone and (areaName(m.zone) or "Other")
@@ -656,6 +651,57 @@ end
 -- Anchored by its top-left corner, so collapsing, the compact view or a new quest only change
 -- the height below the header. (After a drag the game anchors frames by their centre; we
 -- convert back.)
+-- Detailed | Compact: two icon buttons in the tools row; the active one is lit, like the sort
+-- switch. Its OnClick (also used by tests) flips the view.
+function Tracker.ViewSwitch(parent)
+  local sw = CreateFrame("Button", nil, parent)
+  sw:SetSize(52, 18)
+  sw.border = UI.Pill(sw, 18, "BACKGROUND", 0)
+  sw.border:SetColor(C.lineStrong)
+  sw.fill = UI.Pill(sw, 18, "BACKGROUND", 1, 1)
+  sw.fill:SetColor({ 0, 0, 0, .55 })
+  sw.parts = {}
+  for i, def in ipairs({ { "detailed", "viewDetailed", "Detailed view" }, { "compact", "viewCompact", "Compact view" } }) do
+    local b = CreateFrame("Button", nil, sw)
+    b:SetSize(22, 16)
+    b:SetPoint("LEFT", sw, "LEFT", 4 + (i - 1) * 22, 0)
+    b.key, b.tip = def[1], def[3]
+    b.bg = UI.Tex(b, "ARTWORK", 0)
+    b.bg:SetAllPoints()
+    b.icon = UI.Icon(b, def[2], 11, C.muted, "OVERLAY")
+    b.icon:SetPoint("CENTER")
+    b:SetScript("OnClick", function(self)
+      CV.char.tracker.view = self.key
+      sw:Paint()
+      Tracker:Layout()
+    end)
+    b:SetScript("OnEnter", function(self)
+      GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
+      GameTooltip:AddLine(self.tip, 1, 1, 1)
+      GameTooltip:Show()
+    end)
+    b:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    sw.parts[i] = b
+  end
+  function sw:Paint()
+    local a = UI.Accent("clairvoyance")
+    for _, b in ipairs(self.parts) do
+      local on = CV.char.tracker.view == b.key
+      b.bg:SetColorTexture(a[1], a[2], a[3], on and .3 or 0)
+      local tc = on and { 1, 1, 1 } or C.muted
+      b.icon:SetVertexColor(tc[1], tc[2], tc[3])
+    end
+  end
+  -- clicking the switch itself flips the view
+  sw:SetScript("OnClick", function(self)
+    CV.char.tracker.view = CV.char.tracker.view == "compact" and "detailed" or "compact"
+    self:Paint()
+    Tracker:Layout()
+  end)
+  sw:Paint()
+  return sw
+end
+
 local function savePosition()
   local left, top = f:GetLeft(), f:GetTop()
   if not (left and top) then return end
@@ -704,30 +750,7 @@ local function build()
     CV.char.tracker.collapsed = not CV.char.tracker.collapsed
     Tracker:Layout()
   end)
-  -- Detailed / Compact: the icon shows the view you would switch to
-  local view = CreateFrame("Button", nil, head)
-  view:SetSize(18, 18)
-  view:SetPoint("RIGHT", collapse, "LEFT", -4, 0)
-  view.icon = UI.Icon(view, "viewCompact", 12, C.muted)
-  view.icon:SetPoint("CENTER")
-  function view:Paint()
-    local compact = CV.char.tracker.view == "compact"
-    self.icon:SetTexture(compact and UI.TEX.viewDetailed or UI.TEX.viewCompact)
-  end
-  view:SetScript("OnClick", function(self)
-    CV.char.tracker.view = CV.char.tracker.view == "compact" and "detailed" or "compact"
-    self:Paint()
-    Tracker:Layout()
-  end)
-  view:SetScript("OnEnter", function(self)
-    self.icon:SetVertexColor(1, 1, 1)
-    GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-    GameTooltip:AddLine(CV.char.tracker.view == "compact" and "Detailed view" or "Compact view", 1, 1, 1)
-    GameTooltip:Show()
-  end)
-  view:SetScript("OnLeave", function(self) self.icon:SetVertexColor(C.muted[1], C.muted[2], C.muted[3]) GameTooltip:Hide() end)
-  view:Paint()
-  f.view = view
+
 
   f.tools = CreateFrame("Frame", nil, f)
   f.tools:SetHeight(20)
@@ -736,6 +759,8 @@ local function build()
   f.sort = segmented(f.tools)
   f.sort:SetPoint("LEFT", 0, 0)
   f.sort:Paint()
+  f.view = Tracker.ViewSwitch(f.tools)
+  f.view:SetPoint("RIGHT", 0, 0)
 
   f.scroll = UI.ScrollArea(f)
   f.scroll:SetPoint("TOPLEFT", f.tools, "BOTTOMLEFT", 0, -4)
