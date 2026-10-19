@@ -38,7 +38,7 @@ local DEFAULTS = {
     hiddenOnMap = {},     -- questId -> true: markers hidden on the map (shift-click)
     tracked = {},         -- track anything: { key, kind, ids | category, name }, in the order added
     tracker = { shown = true, sort = "near", collapsed = false, scale = 1, view = "detailed", collapsedZones = {},
-      questView = {}, cardAlpha = .62, bars = true },
+      questView = {}, cardAlpha = .62, bars = true, completeGreen = true },
   },
 }
 

@@ -28,6 +28,9 @@ CV:OnReady(function()
   list:Toggle("Progress bars", "A bar under each objective that needs more than one of something. Off: just the counts.",
     function() return tracker().bars end,
     function(on) tracker().bars = on CV.Tracker:Layout() end)
+  list:Toggle("Progress colours", "Like pfQuest: counts and percentages go from red to yellow to green as you progress, and finished quests turn green.",
+    function() return tracker().completeGreen end,
+    function(on) tracker().completeGreen = on CV.Tracker:Layout() end)
   list:Slider("Card background", "How dark the quest cards are behind the text.", 0, 1, .05,
     function() return tracker().cardAlpha end,
     function(v) tracker().cardAlpha = v CV.Tracker:Layout() end, "%.0f%%", 100)

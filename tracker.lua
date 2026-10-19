@@ -23,6 +23,7 @@ CV.Tracker = Tracker
 local WIDTH = 300
 local MAX_HEIGHT_SHARE = .62      -- of the screen height; beyond it the list scrolls
 local MIN_LIST, GRIP = 60, 12     -- the shortest list you can drag it to; the grip's height
+local COMPLETE = { .25, 1, .25 }   -- a finished quest's title
 local GRIP_IDLE = .35             -- the handle's opacity when the mouse isn't on it
 local REFRESH = .5                -- seconds between distance updates
 local RESORT_AFTER = 2            -- a new nearest-first order must hold this long before rows move
@@ -55,6 +56,22 @@ local function areaName(area)
 end
 
 local function questColor(id) return Core.Colors:ForQuest(id) end
+
+---pfQuest's progress colour: red at none, yellow halfway, green when done (lightened to read on
+---the dark cards). nil when progress colours are off.
+function Tracker.ProgressColor(current, required)
+  if CV.char.tracker.completeGreen == false then return nil end
+  required = tonumber(required) or 1
+  local p = required > 0 and math.max(0, math.min(1, (tonumber(current) or 0) / required)) or 1
+  local r, g
+  if p <= .5 then r, g = 1, p * 2 else r, g = 1 - (p * 2 - 1), 1 end
+  return { math.min(1, r + .2), math.min(1, g + .2), .2 }
+end
+
+local function setCountColor(fs, current, required)
+  local c = (current and required) and Tracker.ProgressColor(current, required) or C.muted
+  fs:SetTextColor(c[1], c[2], c[3])
+end
 
 local function levelColor(m)
   local level = m.level or 0
@@ -297,6 +314,10 @@ local function fillRow(row, m, valuesOnly)
   row.title:SetTextColor(lc[1], lc[2], lc[3])
   row.title:SetText(m.complete == "failed" and (m.title .. " (failed)") or m.title)
   if m.complete == "failed" then row.title:SetTextColor(C.impossible[1], C.impossible[2], C.impossible[3]) end
+  if m.complete == true and CV.char.tracker.completeGreen ~= false then
+    -- done: the title turns green, the end of pfQuest's red-yellow-green progress scale
+    row.title:SetTextColor(COMPLETE[1], COMPLETE[2], COMPLETE[3])
+  end
 
   local near = CV.Pins:Nearest(m.id)
   if near then
@@ -312,12 +333,15 @@ local function fillRow(row, m, valuesOnly)
     row.arrow:Hide()
   end
   row.summary:SetText(Tracker.Summary(m))
+  local pc = Tracker.ProgressColor(Tracker.Progress(m), 1) or C.muted
+  row.summary:SetTextColor(pc[1], pc[2], pc[3])
   if valuesOnly then
     for i, o in ipairs(m.objectives) do
       local line = row.lines[i]
       if line then
         line.text:SetText(o.name or o.text or "?")
         line.count:SetText(o.current and o.required and (o.current .. "/" .. o.required) or "")
+        setCountColor(line.count, o.current, o.required)
         line.bar:SetProgress(o.current or 0, o.required or 1)
       end
     end
@@ -381,6 +405,7 @@ local function fillRow(row, m, valuesOnly)
       local tc = done and C.faint or { .87, .84, .77 }
       line.text:SetTextColor(tc[1], tc[2], tc[3])
       line.count:SetText(o.current and o.required and (o.current .. "/" .. o.required) or "")
+      setCountColor(line.count, o.current, o.required)
       -- party: the first member's progress as a chip and a mark on the bar
       local partyName, party
       for player, objectives in pairs(m.party or {}) do
