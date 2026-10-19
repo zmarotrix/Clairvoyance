@@ -23,9 +23,10 @@ CV.Tracker = Tracker
 local WIDTH = 300
 local MAX_HEIGHT_SHARE = .62      -- of the screen height; beyond it the list scrolls
 local MIN_LIST, GRIP = 60, 12     -- the shortest list you can drag it to; the grip's height
--- a finished quest's title: a vivid, bright lime green, brighter than the game's "easy" level
--- green (#40bf40) and a different hue, so finished and low-level quests never read alike
-local COMPLETE = { .35, 1, .2 }
+-- a finished quest's title: bright, saturated lime (#99ff1a, pfUI-like; saturated because the
+-- title font is thin), brighter than the game's "easy" level green (#40bf40) and a yellower hue,
+-- so finished and low-level quests never read alike
+local COMPLETE = { .6, 1, .1 }
 local GRIP_IDLE = .35             -- the handle's opacity when the mouse isn't on it
 local REFRESH = .5                -- default seconds between distance and arrow updates (setting: tracker.refresh)
 local RESORT_AFTER = 2            -- a new nearest-first order must hold this long before rows move
