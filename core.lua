@@ -43,7 +43,7 @@ local DEFAULTS = {
     rareAlert = true,     -- a quiet chat line when a rare shows up on your nameplates
     auto = { accept = false, turnin = false, reward = false, gossip = false },   -- off unless you turn it on
     questLog = { levels = true, ids = false, buttons = true },
-    tracker = { shown = true, sort = "near", scale = 1, view = "detailed", cardAlpha = .62, bars = true,
+    tracker = { shown = true, sort = "zone", scale = 1, view = "detailed", cardAlpha = .62, bars = true,
       completeGreen = true, arrows = true, refresh = .5, finished = "inline" },
     -- preset: the welcome preset these settings started from
   },
@@ -60,6 +60,7 @@ local DEFAULTS = {
 local TRACKER_SETTINGS = {}
 for k in pairs(DEFAULTS.settings.tracker) do TRACKER_SETTINGS[k] = true end
 CV.TRACKER_SETTINGS = TRACKER_SETTINGS
+CV.DEFAULT_SORT = DEFAULTS.settings.tracker.sort
 
 local function fill(target, defaults)
   for k, v in pairs(defaults) do
