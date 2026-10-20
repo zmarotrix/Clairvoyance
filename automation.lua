@@ -16,6 +16,8 @@
 local Core = NorgannonCore
 local DB = NorgannonDB
 local CV = Clairvoyance
+-- the 1.15+ clients (WoW Forever, interface 16001) have only C_Item.GetItemInfo; the global is gone
+local GetItemInfo = C_Item and C_Item.GetItemInfo or GetItemInfo
 if CV.disabled then return end
 
 local Auto = {}

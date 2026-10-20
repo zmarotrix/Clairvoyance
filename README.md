@@ -4,6 +4,12 @@
 
 ---
 
+> [!WARNING]
+> **Very much a work in progress.** This is an early build for WoW Forever (client 1.60.1), in
+> active development and testing. Expect missing features, rough edges, bugs, and changes that
+> break things between versions. Bug reports and feedback are welcome in
+> [Issues](../../issues).
+
 
 A modern quest helper for WoW Forever, built on **NorgannonDB** and **NorgannonDB Core**. It's
 part of the NorgannonDB suite, together with Oracle, Foresight and Archivum.
