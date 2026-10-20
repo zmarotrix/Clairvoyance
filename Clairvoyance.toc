@@ -8,6 +8,9 @@
 ## SavedVariables: ClairvoyanceDB
 ## SavedVariablesPerCharacter: ClairvoyanceCharDB
 ## IconTexture: Interface\AddOns\NorgannonDB_Core\media\marks\clairvoyance
+## AddonCompartmentFunc: Clairvoyance_OnAddonCompartmentClick
+## AddonCompartmentFuncOnEnter: Clairvoyance_OnAddonCompartmentEnter
+## AddonCompartmentFuncOnLeave: Clairvoyance_OnAddonCompartmentLeave
 
 core.lua
 model.lua

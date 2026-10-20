@@ -9,10 +9,10 @@ local DB = NorgannonDB
 Clairvoyance = { addonName = ADDON or "Clairvoyance" }
 local CV = Clairvoyance
 
-if not (Core and Core:Require(1, 11)) or not (DB and DB:RequireSchema(1, 2)) then
+if not (Core and Core:Require(1, 13)) or not (DB and DB:RequireSchema(1, 2)) then
   CV.disabled = true
   C_Timer.After(5, function()
-    print("|cff4fe3cfClairvoyance|r needs NorgannonDB 1.2 and NorgannonDB Core 1.11 or newer; it is turned off.")
+    print("|cff4fe3cfClairvoyance|r needs NorgannonDB 1.2 and NorgannonDB Core 1.13 or newer; it is turned off.")
   end)
   return
 end
@@ -250,6 +250,34 @@ Core:RegisterAction("clairvoyance.track", {
   addon = "clairvoyance", label = "Show on map (Clairvoyance)", kinds = { "npc", "object", "item" },
   run = function(kind, id) if CV.Track then CV:Track(kind, id) end end,
 })
+
+-- the minimap button and the client's addon menu: click shows or hides the quest tracker,
+-- shift-click opens Track anything, right-click the settings
+local function onClick(button)
+  if not CV.ready then return end
+  if button == "RightButton" then
+    CV:OpenSettings()
+  elseif IsShiftKeyDown() then
+    CV.Extras:ToggleFinder(Core.MinimapButton.buttons.clairvoyance or UIParent)
+  else
+    CV.Tracker:SetShown(not CV.char.tracker.shown)
+  end
+end
+CV.MinimapClick = onClick
+local function tooltip(tt)
+  tt:AddLine("Clairvoyance", .31, .89, .81)
+  tt:AddLine("Your quests on the map, minimap and compass", 1, 1, 1)
+  tt:AddLine("Click: show or hide the tracker  ·  Shift-click: track anything", .43, .4, .32)
+  tt:AddLine("Right-click: settings  ·  Drag: move", .43, .4, .32)
+end
+CV:OnReady(function() Core.MinimapButton:Add("clairvoyance", { onClick = onClick, tooltip = tooltip }) end)
+function Clairvoyance_OnAddonCompartmentClick(_, button) onClick(button) end
+function Clairvoyance_OnAddonCompartmentEnter(_, frame)
+  GameTooltip:SetOwner(frame, "ANCHOR_LEFT")
+  tooltip(GameTooltip)
+  GameTooltip:Show()
+end
+function Clairvoyance_OnAddonCompartmentLeave() GameTooltip:Hide() end
 
 SLASH_CLAIRVOYANCE1, SLASH_CLAIRVOYANCE2, SLASH_CLAIRVOYANCE3 = "/clair", "/clairvoyance", "/cv"
 SlashCmdList["CLAIRVOYANCE"] = function(msg)
