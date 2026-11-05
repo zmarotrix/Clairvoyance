@@ -31,6 +31,7 @@ local GRIP_IDLE = .35             -- the handle's opacity when the mouse isn't o
 local REFRESH = .5                -- default seconds between distance and arrow updates (setting: tracker.refresh)
 local RESORT_AFTER = 2            -- a new nearest-first order must hold this long before rows move
 local SORTS = { { "zone", "Zone" }, { "level", "Level" }, { "log", "Log" }, { "near", "Nearest" } }
+local ITEM_SIZE, ITEM_GAP = 28, 4 -- a quest item's button, and its distance from the card
 
 local f, rows, hiddenLine
 local order, pendingOrder, pendingSince = {}, nil, nil
@@ -251,9 +252,6 @@ local function newRow()
   row.summary:SetJustifyH("RIGHT")
   row.qicon = row:CreateTexture(nil, "ARTWORK")
   row.qicon:SetSize(20, 20)
-  row.itemSlot = CreateFrame("Frame", nil, row)
-  row.itemSlot:SetSize(22, 22)
-  row.itemSlot:SetPoint("TOPLEFT", 9, -4)
   -- the level in a small rounded badge tinted with its difficulty colour; the text lives inside
   -- the badge's frame so the badge never covers it
   row.badge = CreateFrame("Frame", nil, row)
@@ -386,11 +384,8 @@ local function fillRow(row, m, valuesOnly)
   end
 
   -- layout
-  local left = 9
-  row.itemSlot:SetShown(m.item ~= nil)
-  if m.item then left = left + 26 end
   row.badge:ClearAllPoints()
-  row.badge:SetPoint("TOPLEFT", left - 2, -6)
+  row.badge:SetPoint("TOPLEFT", 7, -6)
   row.title:ClearAllPoints()
   if row.badge:IsShown() then
     row.title:SetPoint("LEFT", row.badge, "RIGHT", 6, 0)
@@ -605,17 +600,44 @@ function Tracker.Summary(m)
   return math.floor(Tracker.Progress(m) * 100) .. "%"
 end
 
+-- A quest's item hangs off the outside of its card (the side away from the screen's edge), so it
+-- covers nothing, and every title lines up whether its quest has an item or not.
+local function placeItemButton(row, key)
+  local scale = row:GetEffectiveScale() / UIParent:GetEffectiveScale()
+  local left, top = (row:GetLeft() or 0) * scale, (row:GetTop() or 0) * scale
+  local x = left - ITEM_SIZE - ITEM_GAP
+  if x < 0 then x = left + row:GetWidth() * scale + ITEM_GAP end
+  local level = row:GetFrameLevel() + 10
+  Core.ItemButtons:Show(key, row.m.item, function(b)
+    b:SetSize(ITEM_SIZE, ITEM_SIZE)
+    -- it's parented to UIParent, so it needs lifting above the tracker to be clicked
+    b:SetFrameStrata("MEDIUM")
+    b:SetFrameLevel(level)
+    b:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x, top)
+  end)
+end
+
+-- Whether a row's button would sit inside the scrolled list (buttons can't be clipped by it).
+local function inList(row)
+  local top, listTop, listBottom = row:GetTop(), f.scroll:GetTop(), f.scroll:GetBottom()
+  if not (top and listTop and listBottom) then return true end
+  return top <= listTop + 1 and top - ITEM_SIZE >= listBottom - 1
+end
+
 local function placeItemButtons()
-  for _, row in ipairs(rows) do
-    local key = "cv" .. (row.m and row.m.id or 0)
-    if row:IsShown() and row.m and row.m.item and f:IsShown() and not CV.char.tracker.collapsed then
-      local slot = row.itemSlot
-      local scale = slot:GetEffectiveScale() / UIParent:GetEffectiveScale()
-      local x, y = (slot:GetLeft() or 0) * scale, (slot:GetTop() or 0) * scale
-      Core.ItemButtons:Show(key, row.m.item, function(b) b:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x, y) end)
-    elseif row.m then
-      Core.ItemButtons:Hide(key)
+  local placed = {}
+  if f:IsShown() and not CV.char.tracker.collapsed then
+    for _, row in ipairs(rows) do
+      if row:IsShown() and row.m and row.m.item and inList(row) then
+        local key = "cv" .. row.m.id
+        placed[key] = true
+        placeItemButton(row, key)
+      end
     end
+  end
+  -- rows are reused, so a quest that left the list has no row to hide its button
+  for key in pairs(Core.ItemButtons.buttons) do
+    if not placed[key] and key:find("^cv%d") then Core.ItemButtons:Hide(key) end
   end
 end
 
@@ -677,7 +699,6 @@ function Tracker:Draw(quests)
   end
   for i = used + 1, #rows do
     rows[i]:Hide()
-    if rows[i].m then Core.ItemButtons:Hide("cv" .. rows[i].m.id) end
     rows[i].m = nil
   end
   if CV.Extras then y = CV.Extras:Draw(f.content, y, WIDTH) end   -- Tracking and Gathering

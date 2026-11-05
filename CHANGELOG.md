@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.1, 2026-11-04
+
+- **Quest item buttons:** they can be clicked now (they were sitting underneath the tracker's
+  cards). They hang off the outside of the quest's card, on the side away from the screen's edge,
+  so quest titles all line up. A quest leaving the list takes its button with it.
+
 ## 0.9.0 (release candidate), 2026-10-19
 
 The first complete build: every version 1 milestone is in. What's left before 1.0 is a week of
