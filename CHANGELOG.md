@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.2, 2026-11-05
+
+- **Minimap:** Clairvoyance no longer draws its small "?" and "!" over the game's own marks. They
+  stay on the world map, and a new setting under Map brings them back to the minimap.
+
 ## 0.9.1, 2026-11-04
 
 - **Quest item buttons:** they can be clicked now (they were sitting underneath the tracker's

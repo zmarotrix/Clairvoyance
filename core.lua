@@ -39,6 +39,7 @@ local DEFAULTS = {
       rares = false },
     showTrivial = false,
     showFarAbove = false,
+    questMarksOnMinimap = false,   -- the game draws its own "?" and "!" there
     tooltips = true,
     rareAlert = true,     -- a quiet chat line when a rare shows up on your nameplates
     auto = { accept = false, turnin = false, reward = false, gossip = false },   -- off unless you turn it on

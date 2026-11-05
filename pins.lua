@@ -14,6 +14,13 @@ CV.Pins = Pins
 
 local OWNER_OBJECTIVES, OWNER_TURNINS, OWNER_AVAILABLE = "clairvoyance.objectives", "clairvoyance.turnins", "clairvoyance.available"
 
+-- The game draws its own "?" and "!" on the minimap, so ours would only double them (setting).
+-- false keeps a pin off the minimap; nil is Core's default of showing it.
+local function questMarksOnMinimap()
+  if CV.db.questMarksOnMinimap then return nil end
+  return false
+end
+
 local function spawnsOf(target)
   if target.kind == "spawns" then return target.spawns end
   local record = NorgannonDB:Get(target.kind, target.id)
@@ -94,7 +101,7 @@ local function addTarget(list, target, spec)
           area = area, x = p[1], y = p[2], icon = spec.icon, quest = spec.quest, layer = spec.layer, size = spec.size,
           cluster = spec.cluster, compass = spec.compass, title = name, tooltip = spec.tooltip,
           objective = spec.objective, onShiftClick = hideQuestPin, shiftHint = "Shift-click: hide this quest on the map",
-          overlapKey = spec.overlapKey,
+          overlapKey = spec.overlapKey, minimap = spec.minimap,
         }
       end
     end
@@ -118,7 +125,8 @@ local function buildQuest(questId)
     local complete = m.complete == true
     for _, target in ipairs(m.turnins) do
       addTarget(turnins, target, { icon = complete and "question" or "questionGrey", quest = questId, layer = 5, size = 16,
-        compass = complete and ("t" .. questId) or nil, tooltip = turninTooltip(questId), overlapKey = "t" .. questId })
+        compass = complete and ("t" .. questId) or nil, tooltip = turninTooltip(questId), overlapKey = "t" .. questId,
+        minimap = questMarksOnMinimap() })
     end
   end
   Pins.objectives[questId] = #objectives > 0 and objectives or nil
@@ -213,7 +221,7 @@ function Pins:RebuildAvailable()
             area = area, x = p[1], y = p[2], layer = 4, size = 16, title = name, tooltip = tooltip,
             icon = allTrivial and "exclaimGrey" or (allRepeatable and "exclaimDaily" or "exclaim"),
             available = g.entries,   -- no highlight group: hovering a giver doesn't dim the map
-            overlapKey = overlapKey,
+            overlapKey = overlapKey, minimap = questMarksOnMinimap(),
             onShiftClick = hideGiverPin,
             shiftHint = #g.entries > 1 and "Shift-click: hide these quests on the map" or "Shift-click: hide this quest on the map",
           }

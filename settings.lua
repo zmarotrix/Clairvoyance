@@ -103,6 +103,9 @@ CV:OnReady(function()
   list:Toggle("Quests far above your level", "Also show quests 10 or more levels above you.",
     function() return CV.db.showFarAbove end,
     function(on) CV.db.showFarAbove = on CV:Send("FILTERS_CHANGED", "available") end)
+  list:Toggle("Turn-ins and quest givers on the minimap", "The game marks these on the minimap itself; this adds Clairvoyance's too.",
+    function() return CV.db.questMarksOnMinimap end,
+    function(on) CV.db.questMarksOnMinimap = on CV.Pins:Rebuild() CV.Pins:RebuildAvailable() end)
 
   list:Header("Tracking, gathering and rares")
   list:Toggle("Tracked things", "What you track with the magnifier in the tracker or Track… on the world map.",
