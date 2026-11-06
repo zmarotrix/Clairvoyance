@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.3, 2026-11-06
+
+- **Default quest tracker:** when the game brings it back during combat, it's now hidden straight
+  away. Before, it stayed on screen until the fight ended.
+
 ## 0.9.2, 2026-11-05
 
 - **Minimap:** Clairvoyance no longer draws its small "?" and "!" over the game's own marks. They

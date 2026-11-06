@@ -954,7 +954,7 @@ local function build()
 end
 
 -------------------------------------------------------------------------------------------
--- Blizzard's tracker: hidden while ours is shown (changed only out of combat)
+-- Blizzard's tracker: hidden while ours is shown
 -------------------------------------------------------------------------------------------
 
 local blizzardHooked
@@ -964,6 +964,12 @@ local function blizzardTracker() return ObjectiveTrackerFrame or QuestWatchFrame
 local function applyBlizzard()
   local frame = blizzardTracker()
   if not frame then return end
+  -- The client can show its tracker during combat updates. Waiting for combat to end would leave
+  -- it on screen for the whole fight, so hide it now. A protected frame can't be hidden in
+  -- combat (quest item buttons can make it one), but it can go transparent until combat ends.
+  if CV.char.tracker.shown and InCombatLockdown() then
+    if frame:IsProtected() then frame:SetAlpha(0) else frame:Hide() end
+  end
   Core:AfterCombat(function()
     if CV.char.tracker.shown then
       frame:Hide()
@@ -971,6 +977,7 @@ local function applyBlizzard()
       frame:Show()
       if frame == ObjectiveTrackerFrame and frame.Update then frame:Update() end   -- refill it
     end
+    frame:SetAlpha(1)
   end, "clairvoyance.blizzardtracker")
   if not blizzardHooked then
     blizzardHooked = true
