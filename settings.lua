@@ -107,6 +107,11 @@ CV:OnReady(function()
     function() return CV.db.questMarksOnMinimap end,
     function(on) CV.db.questMarksOnMinimap = on CV.Pins:Rebuild() CV.Pins:RebuildAvailable() end)
 
+  list:Header("Bags")
+  list:Toggle("Mark quest items", "A small \"!\" on items a quest in your log needs, items that start a quest, and quest items.",
+    function() return CV.db.bagMarks end,
+    function(on) CV.db.bagMarks = on CV.BagMarks:Reset() end)
+
   list:Header("Tracking, gathering and rares")
   list:Toggle("Tracked things", "What you track with the magnifier in the tracker or Track… on the world map.",
     function() return CV.db.filters.tracking end,

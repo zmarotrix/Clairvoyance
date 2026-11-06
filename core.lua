@@ -41,7 +41,8 @@ local DEFAULTS = {
     showFarAbove = false,
     questMarksOnMinimap = false,   -- the game draws its own "?" and "!" there
     tooltips = true,
-    rareAlert = true,     -- a quiet chat line when a rare shows up on your nameplates
+    bagMarks = true,      -- a small mark on bag slots holding an item that's part of a quest
+    rareAlert = true,    -- a quiet chat line when a rare shows up on your nameplates
     auto = { accept = false, turnin = false, reward = false, gossip = false },   -- off unless you turn it on
     questLog = { levels = true, ids = false, buttons = true },
     tracker = { shown = true, sort = "zone", scale = 1, view = "detailed", cardAlpha = .62, bars = true,

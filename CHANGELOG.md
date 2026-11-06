@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.4, 2026-11-06
+
+- **Quest items in your bags:** a small "!" on items a quest in your log needs, items that start a
+  quest you haven't done, and quest items. A needed item stays marked after you have enough, because
+  you still have to turn it in. It's on by default, with a setting under Bags, and it also shows in
+  Dimension's bag window.
+
 ## 0.9.3, 2026-11-06
 
 - **Default quest tracker:** when the game brings it back during combat, it's now hidden straight

@@ -52,6 +52,7 @@ points where you ask.
 ### And more
 - **Tooltips** that say which of your quests an NPC, object or item is for, with your progress and
   your party's.
+- **Quest items marked in your bags**, so you can see at a glance what not to sell.
 - **A better quest log**, with levels, optional quest IDs, and Show on map and Point arrow buttons.
 - **Optional automation**: accept, turn in, pick the best-value reward, skip the chatter. It's off
   unless you turn it on, and holding Shift pauses it.
