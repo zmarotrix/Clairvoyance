@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.5, 2026-11-06
+
+- **Quest items in your bags:** the mark is now the game's own "!", the one on the minimap, with no
+  circle behind it.
+
 ## 0.9.4, 2026-11-06
 
 - **Quest items in your bags:** a small "!" on items a quest in your log needs, items that start a

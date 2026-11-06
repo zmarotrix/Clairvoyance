@@ -9,14 +9,11 @@
 
 local Core = NorgannonCore
 local CV = Clairvoyance
-local UI = Core.UI
 
 local BagMarks = {}
 CV.BagMarks = BagMarks
 
-local MARK_SIZE = 14
-local GOLD = { .98, .82, .3 }
-local DOT = { .05, .04, .03, .85 }
+local MARK_SIZE = 16
 
 local marks = setmetatable({}, { __mode = "k" })   -- item button -> its mark
 BagMarks.marks = marks
@@ -65,8 +62,10 @@ local function markFor(button)
   m:SetPoint("BOTTOMLEFT", 1, 1)
   m:EnableMouse(false)
   m:SetFrameLevel((button:GetFrameLevel() or 1) + 3)
-  UI.Icon(m, "circle", MARK_SIZE, DOT, "ARTWORK"):SetAllPoints()
-  UI.Icon(m, "exclaim", MARK_SIZE - 2, GOLD, "OVERLAY"):SetPoint("CENTER")
+  -- the game's own quest "!", as on the minimap
+  m.icon = m:CreateTexture(nil, "OVERLAY")
+  m.icon:SetAllPoints()
+  Core.Map.SetIcon(m.icon, "exclaim")
   marks[button] = m
   return m
 end
