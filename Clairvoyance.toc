@@ -1,8 +1,9 @@
 ## Interface: 16001
 ## Title: |cff4fe3cfClairvoyance|r
+## Category: NorgannonDB
 ## Notes: A modern quest helper for WoW Forever: objectives on the map, minimap and compass, a quest tracker, party progress. Powered by NorgannonDB. /clair
 ## Author: Maro
-## Version: 0.9.5
+## Version: 0.9.6
 ## X-License: All Rights Reserved
 ## Dependencies: NorgannonDB, NorgannonDB_Core
 ## SavedVariables: ClairvoyanceDB
