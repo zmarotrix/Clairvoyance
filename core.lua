@@ -32,6 +32,17 @@ Core:NewAddon("clairvoyance", {
       local ok, reason = CV.Availability:Why(id)
       local name = Core.DB:Name("quests", id) or "unknown quest"
       CV:Print(string.format("%s (%d): %s", name, id, ok and "available" or ("not available: " .. tostring(reason))))
+      -- how the game rates it next to Classic's level rule (the quest log colours by the game's)
+      local q = DB:Get("quests", id)
+      local byLevel
+      if q and q.level and q.level > 0 then
+        local c = Core.UI.Difficulty(q.level, UnitLevel("player") or 1)
+        for _, key in ipairs({ "trivial", "easy", "fair", "hard", "impossible" }) do
+          if Core.UI.C[key] == c then byLevel = key end
+        end
+      end
+      CV:Print(string.format("  difficulty: game says %s, level rule says %s", CV.Availability.GameDifficulty(id) or "nothing",
+        byLevel or "nothing"))
     end, "<questId>: is a quest available, and if not, why" },
     perf = { function(rest) CV.Perf.Command(rest) end, "[seconds | stop | report]: measure Clairvoyance while you play" },
   },

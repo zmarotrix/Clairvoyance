@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.10.1, 2026-11-08
+
+- **Tracker colours match the quest log.** WoW Forever's quest log colours each quest by how the server rates it for
+  you, not by Classic's level ranges. The tracker worked the colour out from the level, so a quest the log showed
+  green could be grey on the tracker. It now asks the game the same way (falling back to the level rule on a client
+  that can't say).
+- `/clair why <questId>` also says how the game rates the quest next to the level rule.
+
 ## 0.10.0, 2026-11-07
 
 Faster, with nothing changed in how it looks or behaves (docs/clairvoyance-perf-review.md in the suite workspace).

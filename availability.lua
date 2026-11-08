@@ -52,6 +52,28 @@ local function playerMasks()
   return enums.raceMaskById and enums.raceMaskById[raceId], enums.classKeys and enums.classKeys[Core.Player.class or ""]
 end
 
+-- RelativeContentDifficulty, as the server rates a quest for this player (the quest log's colours)
+local GAME_DIFFICULTY = { [0] = "trivial", [1] = "easy", [2] = "fair", [3] = "hard", [4] = "impossible" }
+
+---How the game itself rates a quest for the player ("trivial" .. "impossible"), or nil when the
+---client can't say. Forever's quest log colours by this, not by Classic's level ranges, so a quest
+---the level rule calls grey can still be green there.
+function Availability.GameDifficulty(questId)
+  local info = rawget(_G, "C_PlayerInfo")
+  local api = info and info.GetContentDifficultyQuestForPlayer
+  if not (api and questId) then return nil end
+  local ok, d = pcall(api, questId)
+  if not ok or Core.IsSecret(d) then return nil end
+  return GAME_DIFFICULTY[d]
+end
+
+---The colour of a quest in your log: the game's own rating, else the level rule.
+function Availability.LogQuestColor(questId, level)
+  local key = Availability.GameDifficulty(questId)
+  if key then return Core.UI.C[key] end
+  return Core.UI.Difficulty(level, UnitLevel("player") or 1)
+end
+
 ---Can the player take this quest now? Returns true, or false and a reason. q is the decoded
 ---NorgannonDB record (tests pass their own).
 function Availability.Check(id, q)

@@ -92,7 +92,7 @@ end
 local function levelColor(m)
   local level = m.level or 0
   if level <= 0 or m.levelless then return C.muted end
-  return UI.Difficulty(level, UnitLevel("player") or 1)
+  return CV.Availability.LogQuestColor(m.id, level)
 end
 
 local function yards(d)
