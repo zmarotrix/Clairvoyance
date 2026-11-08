@@ -27,8 +27,9 @@ CV:OnReady(function()
   list:Header("Quest tracker")
   list:Toggle("Show the quest tracker", "Blizzard's tracker is hidden while Clairvoyance's is on.",
     function() return tracker().shown end, function(on) CV.Tracker:SetShown(on) end)
-  list:Dropdown("Quests show as", "The default for every quest. Click a quest in the tracker to switch just that one.",
-    { { "detailed", "Detailed" }, { "compact", "Compact" } },
+  list:Dropdown("Quests show as", "Detailed: cards with progress bars; click one to fold it to a line. "
+    .. "Simple: plain text laid out like Questie; click a quest to fold its objectives.",
+    { { "detailed", "Detailed" }, { "compact", "Simple" } },
     function() return tracker().view end,
     function(v)
       tracker().view = v
@@ -36,6 +37,9 @@ CV:OnReady(function()
       if CV.Tracker.frame then CV.Tracker.frame.view:Select(v, true) end
       CV.Tracker:Layout()
     end)
+  list:Toggle("Quest colours on the left", "Each quest's colour along the left edge of its row, matching its marks on the map.",
+    function() return tracker().edges end,
+    function(on) tracker().edges = on CV.Tracker:Layout() end)
   list:Toggle("Progress bars", "A bar under each objective that needs more than one of something. Off: just the counts.",
     function() return tracker().bars end,
     function(on) tracker().bars = on CV.Tracker:Layout() end)

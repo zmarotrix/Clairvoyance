@@ -786,7 +786,7 @@ local function paint(line)
   if line.trackKey then
     local c = Extras.ColorOf(line.trackKey)
     line.edge:SetVertexColor(c[1], c[2], c[3])
-    line.edge:Show()
+    line.edge:SetShown(CV.char.tracker.edges ~= false)
     markIcon(line.mark, line.category, true, c)
   else
     line.edge:Hide()

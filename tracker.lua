@@ -1,6 +1,6 @@
 -- The quest tracker (docs/clairvoyance-v1.md section 3; design/suite/clairvoyance.html).
--- Two views: Detailed (objective lines with bars) and Compact (one line per quest). Every quest
--- in the log (any can be hidden), sorted Nearest / Zone / Level / Log (zones collapse), with live
+-- Two views: Detailed (cards with objective lines and bars) and Simple (plain text laid out like
+-- Questie's tracker: grey zones, "[12] Title", objectives underneath). Every quest in the log (any can be hidden), sorted Nearest / Zone / Level / Log (zones collapse), with live
 -- objective progress, party members' progress, the distance and bearing of the nearest target,
 -- the turn-in once a quest is complete, and the quest's usable item.
 --
@@ -32,6 +32,13 @@ local REFRESH = .5                -- default seconds between distance and arrow 
 local RESORT_AFTER = 2            -- a new nearest-first order must hold this long before rows move
 local SORTS = { { "zone", "Zone" }, { "level", "Level" }, { "log", "Log" }, { "near", "Nearest" } }
 local ITEM_SIZE, ITEM_GAP = 28, 4 -- a quest item's button, and its distance from the card
+local TOOLS_H = 24                -- the sort and view switches' row under the header
+-- the Simple view takes Questie's default look: Friz Quadrata, 12 for zones, 10 for the rest
+local SIMPLE_ZONE, SIMPLE_TEXT = 12, 10
+local SIMPLE_ZONE_COLOR = "|cFFC0C0C0"
+local SIMPLE_OBJECTIVE = { .933, .933, .933 }   -- Questie's #EEEEEE
+local SIMPLE_COMPLETE = "|cFF28FF28"            -- its "Quest Complete!"
+local SIMPLE_TITLE_X, SIMPLE_LINE_X = 12, 22
 
 local f, rows, hiddenLine
 local order, pendingOrder, pendingSince = {}, nil, nil
@@ -203,10 +210,20 @@ end
 ---Card background at the chosen opacity (settings: 0 to 100%); hover darkens it a little.
 ---The outline fades with it, so a fully clear card has no box at all.
 function Tracker.PaintCard(row, hover)
+  if row.isSimple then   -- plain text on the world; just a faint wash under the mouse
+    row.bg:SetColor({ .055, .043, .027 }, hover and .35 or 0)
+    row.outline:SetColor({ 1, 1, 1 }, 0)
+    return
+  end
   local a = CV.char.tracker.cardAlpha or .62
   local share = a / .62
   row.bg:SetColor(hover and { .055, .043, .027 } or { .03, .024, .016 }, math.min(1, hover and a + .23 or a))
   row.outline:SetColor({ 1, 1, 1 }, math.min(.3, (hover and .14 or .06) * math.max(share, hover and .5 or 0)))
+end
+
+---The quest's colour along the row's left edge (setting: tracker.edges).
+local function showEdge(row, on)
+  for _, piece in ipairs(row.edge.pieces) do piece:SetShown(on) end
 end
 
 local function objectiveLine(row, i)
@@ -300,8 +317,13 @@ local function newRow()
     elseif IsControlKeyDown() then Tracker:Focus(m)
     elseif IsShiftKeyDown() then linkQuest(m)
     else
-      -- click: this quest alone switches between compact and expanded
-      CV.char.tracker.questView[m.id] = Tracker.IsCompact(m) and "detailed" or "compact"
+      -- click: this quest alone folds (Simple view) or switches between compact and expanded
+      local views = CV.char.tracker.questView
+      if Tracker.IsSimple() then
+        views[m.id] = views[m.id] ~= "folded" and "folded" or nil
+      else
+        views[m.id] = Tracker.IsCompact(m) and "detailed" or "compact"
+      end
       Tracker:Layout()
     end
   end)
@@ -325,16 +347,30 @@ function Tracker:ShowTooltip(row, m)
     end
   end
   local fa = C.faint
-  GameTooltip:AddLine("Click: expand or compact · Ctrl-click: point the arrow · Right-click: actions", fa[1], fa[2], fa[3])
+  GameTooltip:AddLine((Tracker.IsSimple() and "Click: fold or unfold" or "Click: expand or compact")
+    .. " · Ctrl-click: point the arrow · Right-click: actions", fa[1], fa[2], fa[3])
   GameTooltip:Show()
 end
 
 -- Fills a row from the model; returns its height. values only = no anchors or visibility changes
 -- that alter the layout (used in combat).
+local fillSimple
+
 local function fillRow(row, m, valuesOnly)
   row.m = m
   local c = questColor(m.id)
   row.edge:SetColor(c)
+  showEdge(row, CV.char.tracker.edges ~= false)
+  local simple = Tracker.IsSimple()
+  if row.isSimple ~= simple then
+    row.isSimple = simple
+    -- the two looks use different text, so switching hides the other's
+    for _, part in ipairs({ row.badge, row.title, row.summary, row.qicon, row.turnin, row.focus }) do part:Hide() end
+    for i = 1, #row.lines do row.lines[i]:Hide() end
+    if row.simple then row.simple:Hide() end
+    if not simple then row.title:Show() end
+  end
+  if simple then return fillSimple(row, m, valuesOnly) end
   local lc = levelColor(m)
   local levelText = m.levelless and "–" or (m.level and m.level > 0 and tostring(m.level) or "")
   row.level:SetText(levelText)
@@ -479,6 +515,133 @@ local function fillRow(row, m, valuesOnly)
 end
 
 -------------------------------------------------------------------------------------------
+-- Simple rows: plain text, laid out like Questie's tracker
+-------------------------------------------------------------------------------------------
+
+local function simpleText(parent)
+  local fs = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  fs:SetFont(STANDARD_TEXT_FONT, SIMPLE_TEXT, "")
+  fs:SetShadowOffset(1, -1)
+  fs:SetJustifyH("LEFT")
+  fs:SetJustifyV("TOP")
+  return fs
+end
+
+local function simpleParts(row)
+  local s = row.simple
+  if s then return s end
+  s = CreateFrame("Frame", nil, row)
+  s:SetAllPoints(row)
+  s.title = simpleText(s)
+  s.title:SetPoint("TOPLEFT", SIMPLE_TITLE_X, -2)
+  s.title:SetWordWrap(false)
+  s.fold = simpleText(s)                -- the "+" in the margin of a folded quest, like Questie's
+  s.fold:SetPoint("TOPRIGHT", s.title, "TOPLEFT", -2, 0)
+  s.fold:SetTextColor(.75, .75, .75)
+  s.lines = {}
+  row.simple = s
+  return s
+end
+
+---The level the way Questie writes it: "[12] ", nothing for level-less quests.
+function Tracker.LevelText(m)
+  if m.levelless or not m.level or m.level <= 0 then return "" end
+  return "[" .. m.level .. "] "
+end
+
+---The text of one objective line: the client's own wording, which carries the count.
+function Tracker.ObjectiveText(o)
+  if o.text and o.text ~= "" then return o.text end
+  local name = o.name or "?"
+  return (o.current and o.required) and (name .. ": " .. o.current .. "/" .. o.required) or name
+end
+
+-- "Progress colours" on: Questie's red-to-green option. Off: its default, plain white.
+local function simpleObjectiveColor(o)
+  local c
+  if o.finished then c = Tracker.ProgressColor(1, 1)
+  elseif o.current and o.required then c = Tracker.ProgressColor(o.current, o.required) end
+  if c and CV.char.tracker.completeGreen ~= false then return c end
+  return SIMPLE_OBJECTIVE
+end
+
+fillSimple = function(row, m, valuesOnly)
+  local s = simpleParts(row)
+  s:Show()
+  local folded = CV.char.tracker.questView[m.id] == "folded"
+  local lc = levelColor(m)
+  local state = ""
+  if folded and m.complete == true then state = " " .. SIMPLE_COMPLETE .. "(Complete)|r"
+  elseif folded and m.complete == "failed" then state = " |cFFFF0000(Failed)|r" end
+  s.title:SetText(Tracker.LevelText(m) .. m.title .. state)
+  s.title:SetTextColor(lc[1], lc[2], lc[3])
+  s.fold:SetText(folded and "+" or "")
+
+  -- what goes under the title: the objectives, or the quest's end state
+  local n = 0
+  local function line(text, color)
+    n = n + 1
+    local fs = s.lines[n]
+    if not fs then
+      fs = simpleText(s)
+      fs:SetWordWrap(true)
+      s.lines[n] = fs
+    end
+    fs:SetText(text)
+    if color then fs:SetTextColor(color[1], color[2], color[3]) else fs:SetTextColor(1, 1, 1) end
+    return fs
+  end
+  if not folded then
+    if m.complete == true then line(SIMPLE_COMPLETE .. "Quest Complete!|r")
+    elseif m.complete == "failed" then line("|cFFFF0000Quest Failed!|r")
+    else
+      for _, o in ipairs(m.objectives) do line(Tracker.ObjectiveText(o), simpleObjectiveColor(o)) end
+    end
+  end
+
+  -- distance and direction, if they're on (setting: tracker.arrows)
+  local near = CV.char.tracker.arrows ~= false and CV.Pins:Nearest(m.id)
+  if near then
+    row.dist:SetText(yards(near.distance))
+    row.dist:SetTextColor(C.muted[1], C.muted[2], C.muted[3])
+    local facing = GetPlayerFacing()
+    local canPoint = facing ~= nil and not Core.IsSecret(facing)
+    row.arrow:SetShown(canPoint)
+    if canPoint then
+      row.arrow:SetRotation(near.angle - facing)
+      row.arrow:SetVertexColor(C.muted[1], C.muted[2], C.muted[3])
+    end
+  else
+    row.dist:SetText("")
+    row.arrow:Hide()
+  end
+
+  if valuesOnly then return row:GetHeight() end   -- combat: new text in the same places
+
+  row.dist:ClearAllPoints()
+  row.dist:SetPoint("TOPRIGHT", -6, -2)
+  row.focus:ClearAllPoints()
+  row.focus:SetPoint("LEFT", s.title, "RIGHT", 4, 0)
+  row.focus:SetShown(CV.focus == m.id)
+  s.title:SetWidth(WIDTH - SIMPLE_TITLE_X - (near and 62 or 8))
+  local y = 2 + SIMPLE_TEXT + 3
+  for i = 1, n do
+    local fs = s.lines[i]
+    fs:ClearAllPoints()
+    fs:SetPoint("TOPLEFT", SIMPLE_LINE_X, -y)
+    fs:SetWidth(WIDTH - SIMPLE_LINE_X - 8)
+    fs:Show()
+    local h = fs:GetStringHeight()
+    if not h or h < SIMPLE_TEXT then h = SIMPLE_TEXT end
+    y = y + h + 2
+  end
+  for i = n + 1, #s.lines do s.lines[i]:Hide() end
+  local height = y + 4   -- Questie's padding between quests
+  row:SetHeight(height)
+  return height
+end
+
+-------------------------------------------------------------------------------------------
 -- Ordering
 -------------------------------------------------------------------------------------------
 
@@ -564,6 +727,10 @@ local function groupHeader(i)
     h.chev:SetPoint("LEFT", 4, 0)
     h.text = UI.Text(h, "title", 13, C.goldSoft)
     h.text:SetPoint("LEFT", h.chev, "RIGHT", 5, 0)
+    h.plain = h:CreateFontString(nil, "OVERLAY", "GameFontNormal")   -- the Simple view's heading
+    h.plain:SetFont(STANDARD_TEXT_FONT, SIMPLE_ZONE, "")
+    h.plain:SetShadowOffset(1, -1)
+    h.plain:SetPoint("LEFT", 2, 0)
     h:SetScript("OnClick", function(self)
       local zones = CV.char.tracker.collapsedZones
       zones[self.zone] = not zones[self.zone] or nil
@@ -576,10 +743,12 @@ local function groupHeader(i)
   return h
 end
 
----Whether a quest shows compact: its own choice (clicked), else the tracker's default view.
+---Whether the tracker is in its Simple view (saved as "compact", the view it replaced).
+function Tracker.IsSimple() return CV.char.tracker.view == "compact" end
+
+---Whether a quest's card is folded to one line in the Detailed view (a click on it does that).
 function Tracker.IsCompact(m)
-  local own = CV.char.tracker.questView[m.id]
-  return (own or CV.char.tracker.view) == "compact"
+  return CV.char.tracker.questView[m.id] == "compact"
 end
 
 ---How far along a quest is, 0 to 1: the average of its objectives (pfQuest's percentage).
@@ -594,7 +763,7 @@ function Tracker.Progress(m)
   return sum / #m.objectives
 end
 
----The one-line progress of a quest for the compact view: "45%".
+---The one-line progress of a quest for a compact card: "45%".
 function Tracker.Summary(m)
   if m.complete == true or #m.objectives == 0 then return "" end
   return math.floor(Tracker.Progress(m) * 100) .. "%"
@@ -657,8 +826,10 @@ end
 function Tracker:Draw(quests)
   local collapsed = CV.char.tracker.collapsed
   f.count:SetText(#CV.Model:List() .. "/" .. maxQuests())
+  f.plainHead:SetText("Quests: " .. #CV.Model:List() .. "/" .. maxQuests())
   f.collapse:SetRotation(collapsed and math.pi / 2 or 0)
   f.tools:SetShown(not collapsed)
+  Tracker.ApplyViewChrome()
   f.scroll:SetShown(not collapsed)
   for _, h in ipairs(groupHeaders) do h:Hide() end
   local byZone = CV.char.tracker.sort == "zone"
@@ -669,8 +840,8 @@ function Tracker:Draw(quests)
       counts[z] = (counts[z] or 0) + 1
     end
   end
-  local compact = CV.char.tracker.view == "compact"
-  local gap = compact and 2 or 3
+  local simple = Tracker.IsSimple()
+  local gap = simple and 0 or 3
   local y, zone, g, used = 0, nil, 0, 0
   for _, m in ipairs(quests) do
     local z = byZone and (areaName(m.zone) or "Other")
@@ -680,10 +851,16 @@ function Tracker:Draw(quests)
       h.zone = z
       h.text:SetText(z .. "  " .. UI.Code(C.faint) .. counts[z] .. "|r")
       h.chev:SetRotation(CV.char.tracker.collapsedZones[z] and math.pi / 2 or 0)
+      -- Simple: just the grey name, with a "+" when it's folded, as in Questie
+      h.text:SetShown(not simple)
+      h.chev:SetShown(not simple)
+      h.plain:SetShown(simple)
+      h.plain:SetText(SIMPLE_ZONE_COLOR .. z .. (CV.char.tracker.collapsedZones[z] and " +" or "") .. "|r")
+      h:SetHeight(simple and 16 or 20)
       h:ClearAllPoints()
       h:SetPoint("TOPLEFT", f.content, "TOPLEFT", 0, -y)
       h:Show()
-      y = y + 22
+      y = y + (simple and 18 or 22)
     end
     if not (byZone and CV.char.tracker.collapsedZones[z]) then
       used = used + 1
@@ -714,9 +891,51 @@ function Tracker:Draw(quests)
   f.content:SetHeight(math.max(1, y))
   local listH = math.min(y, Tracker.MaxListHeight())
   f.scroll:SetHeight(math.max(1, listH))
-  f:SetHeight(collapsed and 26 or (26 + 24 + listH + 4 + GRIP))
+  f:SetHeight(collapsed and 26 or (26 + Tracker.ToolsHeight() + listH + 4 + GRIP))
   f.grip:SetShown(not collapsed)
   placeItemButtons()
+end
+
+---The room the switches take under the header. The Simple view floats them above it on hover.
+function Tracker.ToolsHeight() return Tracker.IsSimple() and 0 or TOOLS_H end
+
+---Puts the header's switches where this view wants them. Simple: out of the way above the header
+---until you point at the tracker, like Questie's own controls.
+function Tracker.ApplyViewChrome()
+  if not f then return end
+  local simple = Tracker.IsSimple()
+  if f.chromeSimple == simple then return end
+  f.chromeSimple = simple
+  f.chromeOver = nil   -- so the next frame re-reads the mouse rather than trusting the old view
+  f.mark:SetShown(not simple)
+  f.title:SetShown(not simple)
+  f.count:SetShown(not simple)
+  f.plainHead:SetShown(simple)
+  f.tools:ClearAllPoints()
+  f.scroll:ClearAllPoints()
+  if simple then
+    f.tools:SetPoint("BOTTOMLEFT", f.head, "TOPLEFT", 0, 2)
+    f.tools:SetPoint("BOTTOMRIGHT", f.head, "TOPRIGHT", 0, 2)
+    f.scroll:SetPoint("TOPLEFT", f.head, "BOTTOMLEFT", 0, -2)
+    Tracker.FadeChrome(0)
+  else
+    f.tools:SetPoint("TOPLEFT", f.head, "BOTTOMLEFT", 0, -2)
+    f.tools:SetPoint("TOPRIGHT", f.head, "BOTTOMRIGHT", 0, -2)
+    f.scroll:SetPoint("TOPLEFT", f.tools, "BOTTOMLEFT", 0, -4)
+    Tracker.FadeChrome(1)
+  end
+end
+
+---Shows (1) or hides (0) what the Simple view keeps out of the way. Hidden switches take no clicks.
+function Tracker.FadeChrome(alpha)
+  f.tools:SetAlpha(alpha)
+  f.tools:EnableMouse(alpha > 0)
+  f.sort:SetShown(alpha > 0)
+  f.view:SetShown(alpha > 0)
+  f.grip:SetAlpha(alpha)
+  f.gear:SetAlpha(alpha)
+  f.find:SetAlpha(alpha)
+  f.collapse:SetAlpha(alpha)
 end
 
 ---How tall the list may get before it scrolls: the length you dragged, else a share of the screen.
@@ -784,6 +1003,7 @@ local function build()
   head:SetHeight(24)
   head:SetPoint("TOPLEFT")
   head:SetPoint("TOPRIGHT")
+  f.head = head
   head:EnableMouse(true)
   head:RegisterForDrag("LeftButton")
   head:SetScript("OnDragStart", function() if not InCombatLockdown() then f:StartMoving() end end)
@@ -795,6 +1015,12 @@ local function build()
   f.title:SetText("Quests")
   f.count = UI.Text(head, "body", 12, C.muted)
   f.count:SetPoint("LEFT", f.title, "RIGHT", 6, -1)
+  f.plainHead = head:CreateFontString(nil, "OVERLAY", "GameFontNormal")   -- the Simple view's title
+  f.plainHead:SetFont(STANDARD_TEXT_FONT, SIMPLE_ZONE, "")
+  f.plainHead:SetShadowOffset(1, -1)
+  f.plainHead:SetTextColor(C.goldSoft[1], C.goldSoft[2], C.goldSoft[3])
+  f.plainHead:SetPoint("LEFT", 2, 0)
+  f.plainHead:Hide()
   local collapse = CreateFrame("Button", nil, head)
   collapse:SetSize(18, 18)
   collapse:SetPoint("RIGHT", -2, 0)
@@ -852,7 +1078,7 @@ local function build()
   -- the default view for every quest (a click on a quest changes just that one)
   f.view = UI.Segmented(f.tools, {
     { key = "detailed", icon = "viewDetailed", tip = "Detailed view (all quests)" },
-    { key = "compact", icon = "viewCompact", tip = "Compact view (all quests)" },
+    { key = "compact", icon = "viewCompact", tip = "Simple view (all quests)" },
   }, function(key)
     CV.char.tracker.view = key
     wipe(CV.char.tracker.questView)
@@ -889,7 +1115,7 @@ local function build()
   local function cursorY() return select(2, GetCursorPosition()) / f:GetEffectiveScale() end
   function grip:Apply(listH)
     f.scroll:SetHeight(listH)
-    f:SetHeight(26 + 24 + listH + 4 + GRIP)
+    f:SetHeight(26 + Tracker.ToolsHeight() + listH + 4 + GRIP)
   end
   grip:SetScript("OnEnter", function(self)
     self.bar:SetAlpha(1)
@@ -945,6 +1171,14 @@ local function build()
   rows = {}
   local elapsed = 0
   f:SetScript("OnUpdate", function(_, dt)
+    -- Simple view: the switches appear while you point at the tracker (or at them, above it)
+    if Tracker.IsSimple() then
+      local over = f:IsMouseOver(TOOLS_H + 4, 0, 0, 0) or f.grip.dragging
+      if over ~= f.chromeOver then
+        f.chromeOver = over
+        Tracker.FadeChrome(over and 1 or 0)
+      end
+    end
     elapsed = elapsed + dt
     if elapsed < (CV.char.tracker.refresh or REFRESH) then return end
     elapsed = 0
@@ -1012,6 +1246,7 @@ CV:Listen("SETTINGS_CHANGED", "tracker", function()
   f:SetScale(t.scale or 1)
   f.view:Select(t.view, true)
   f.sort:Select(t.sort, true)
+  f.chromeOver = nil
   Tracker:SetShown(t.shown)
 end)
 CV:Listen("PINS_UPDATED", "tracker", function() Tracker:Refresh(InCombatLockdown()) end)

@@ -42,8 +42,8 @@ points where you ask.
   is near.
 
 ### The quest tracker
-- **Every quest in your log**, sorted by zone, level, log order or distance, as detailed or compact
-  cards.
+- **Every quest in your log**, sorted by zone, level, log order or distance, as detailed cards or a
+  simple Questie-style list.
 - **Progress at a glance**: colours that warm up as you go, bright lime for finished quests, and
   progress bars if you want them.
 - **Distance and direction** to each quest, and a "use item" button that works in combat.

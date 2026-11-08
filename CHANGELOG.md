@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.6, 2026-11-06
+
+- **Quest colours in the tracker:** the colour down the left side of each row can now be turned off
+  (Settings, Quest tracker, "Quest colours on the left").
+- **Simple view:** the Compact view is now called Simple and looks like Questie's tracker: plain text
+  with no cards, grey zone names, `[12] Quest name` in its difficulty colour, objectives underneath,
+  and a green "Quest Complete!". Click a quest to fold its objectives. The sort and view switches
+  appear above the tracker when you point at it. In the Detailed view, clicking a card still folds it
+  to one line.
+
 ## 0.9.5, 2026-11-06
 
 - **Quest items in your bags:** the mark is now the game's own "!", the one on the minimap, with no

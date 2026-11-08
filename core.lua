@@ -46,7 +46,7 @@ local DEFAULTS = {
     auto = { accept = false, turnin = false, reward = false, gossip = false },   -- off unless you turn it on
     questLog = { levels = true, ids = false, buttons = true },
     tracker = { shown = true, sort = "zone", scale = 1, view = "detailed", cardAlpha = .62, bars = true,
-      completeGreen = true, arrows = true, refresh = .5, finished = "inline" },
+      completeGreen = true, arrows = true, refresh = .5, finished = "inline", edges = true },
     -- preset: the welcome preset these settings started from
   },
   char = {

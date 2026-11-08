@@ -5,7 +5,7 @@
 -- Choosing All characters when global settings exist uses them as they are, unless you pick a
 -- preset to replace them.
 --
---   Simple      your quests only: tracker (compact), tooltips, objective and turn-in pins. No
+--   Simple      your quests only: tracker (simple view), tooltips, objective and turn-in pins. No
 --               available quests, compass, gathering, rares or automation
 --   Balanced    (recommended) adds available quests, the compass and detailed quest cards
 --   Everything  every feature on: herbs, ore, fishing and rares on the map, rare alerts, quest IDs
@@ -27,7 +27,7 @@ local SAFE = { accept = true, turnin = true, reward = false, gossip = true }   -
 
 local PRESETS = {
   { key = "simple", name = "Simple", tag = "Just your quests",
-    points = { "Compact tracker and tooltips", "Pins for the quests you have", "Nothing else on screen" },
+    points = { "Simple tracker and tooltips", "Pins for the quests you have", "Nothing else on screen" },
     auto = NONE, available = false, compass = false, view = "compact", extras = false },
   { key = "balanced", name = "Balanced", tag = "Recommended",
     points = { "Everything in Simple", "Quests you can pick up nearby", "Compass and detailed cards", "No automation" },
