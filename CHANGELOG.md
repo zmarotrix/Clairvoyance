@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.9, 2026-11-07
+
+- **Level badges are centred.** The number now fills its badge and the game centres it in the badge's own bounds,
+  instead of a hand-placed 1-pixel nudge that read off-centre at some widths. The soft glow behind the number is gone
+  from inside the badge, where it smeared the digits; the badge's dark fill gives the contrast.
+
 ## 0.9.8, 2026-11-07
 
 - **The Compact view is back.** 0.9.6 replaced it with a plain-text "Simple" view styled after Questie's tracker. That

@@ -264,11 +264,14 @@ local function newRow()
   row.badge.border = UI.Pill(row.badge, 16, "BACKGROUND", 0)
   row.badge.fill = UI.Pill(row.badge, 16, "BACKGROUND", 1, 1)
   row.level = UI.Text(row.badge, "bold", 12)
-  -- optically centred: digits sit low in the font's line box, and the usual drop shadow would
-  -- make them heavier on one side of such a small badge
-  row.level:SetPoint("CENTER", 1, 0)   -- digits' right-side spacing reads as left of centre
+  -- the number fills the badge and the font engine centres it in the badge's own bounds (no
+  -- hand nudge, which read off-centre at some widths). No glow or drop shadow: inside such a
+  -- small badge they smear the digits and weigh them to one side; the badge's dark fill is
+  -- the contrast
+  row.level:SetAllPoints(row.badge)
   row.level:SetJustifyH("CENTER")
-  UI.Glow(row.level)   -- the same soft glow as the quest names (no drop shadow)
+  row.level:SetJustifyV("MIDDLE")
+  row.level:SetShadowOffset(0, 0)
   row.title = UI.Text(row, "title", 14)
   -- a soft black glow all round, so names read on any card opacity (an outline looked harsh)
   UI.Glow(row.title)
