@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.8, 2026-11-07
+
+- **The Compact view is back.** 0.9.6 replaced it with a plain-text "Simple" view styled after Questie's tracker. That
+  was a misreading of what was asked for, so the tracker is back to Detailed and Compact cards as before 0.9.6. The
+  setting to turn off the quest colours on the left stays.
+
 ## 0.9.7, 2026-11-07
 
 - Built on NorgannonDB Core 1.20's `Core:NewAddon`. The minimap row works as before: a click shows or hides the
