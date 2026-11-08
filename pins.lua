@@ -191,7 +191,7 @@ local function availableTooltip(entries)
     tt:AddLine(pin.title or "?", 1, 1, 1)
     local level = Core.Player.level or 1
     for _, e in ipairs(entries) do
-      local c = e.levelless and UI.C.text or UI.Difficulty(e.level, level)
+      local c = e.levelless and UI.C.text or e.color or UI.Difficulty(e.level, level)
       local name = Core.DB:Name("quests", e.id) or ("Quest " .. e.id)
       tt:AddLine(string.format("[%s] %s%s", e.levelless and "–" or e.level, name, e.repeatable and "  (repeatable)" or ""), c[1], c[2], c[3])
     end

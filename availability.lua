@@ -67,12 +67,13 @@ function Availability.GameDifficulty(questId)
   return GAME_DIFFICULTY[d]
 end
 
----The colour of a quest in your log: the game's own rating, else the level rule.
-function Availability.LogQuestColor(questId, level)
+---The colour of a quest (in your log or not): the game's own rating, else the level rule.
+function Availability.QuestColor(questId, level)
   local key = Availability.GameDifficulty(questId)
   if key then return Core.UI.C[key] end
-  return Core.UI.Difficulty(level, UnitLevel("player") or 1)
+  return Core.UI.Difficulty(level, Core.Player.level or UnitLevel("player") or 1)
 end
+Availability.LogQuestColor = Availability.QuestColor
 
 ---Can the player take this quest now? Returns true, or false and a reason. q is the decoded
 ---NorgannonDB record (tests pass their own).
@@ -169,10 +170,12 @@ function Availability:ForArea(area)
       if #starters > 0 then
         local levelless = Availability.Levelless(q)
         local qlevel = (q.level and q.level > 0 and not levelless) and q.level or level
+        -- grey or not as the game rates it (the quest log's colours), else by the level rule
+        local color = Availability.QuestColor(id, qlevel)
         list[#list + 1] = {
           id = id, quest = q, starters = starters, level = qlevel,
-          levelless = levelless,
-          trivial = not levelless and Core.UI.Difficulty(qlevel, level) == Core.UI.C.trivial,
+          levelless = levelless, color = color,
+          trivial = not levelless and color == Core.UI.C.trivial,
           farAbove = not levelless and qlevel >= level + Availability.FAR_ABOVE,
           repeatable = flagSet(q.specialFlags, REPEATABLE),
         }

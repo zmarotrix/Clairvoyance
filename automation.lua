@@ -46,7 +46,7 @@ function Auto.Acceptable(questId, trivialFromGame)
   local q = DB:Get("quests", questId)
   local trivial = trivialFromGame
   if trivial == nil and q and q.level and not CV.Availability.Levelless(q) then
-    trivial = Core.UI.Difficulty(q.level, Core.Player.level or UnitLevel("player") or 1) == Core.UI.C.trivial
+    trivial = CV.Availability.QuestColor(questId, q.level) == Core.UI.C.trivial
   end
   if trivial and not CV.db.showTrivial then return false end
   return true

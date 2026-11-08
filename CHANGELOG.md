@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.10.2, 2026-11-08
+
+- **Quests you can pick up are rated by the game too.** Whether a "!" is grey (and hidden unless low-level quests are
+  shown), the colours in its tooltip, and which quests auto-accept skips as low level now follow the server's own
+  rating, as the quest log does, instead of Classic's level ranges. "Far above your level" still goes by level.
+
 ## 0.10.1, 2026-11-08
 
 - **Tracker colours match the quest log.** WoW Forever's quest log colours each quest by how the server rates it for
