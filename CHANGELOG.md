@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.7, 2026-11-07
+
+- Built on NorgannonDB Core 1.20's `Core:NewAddon`. The minimap row works as before: a click shows or hides the
+  tracker, Shift-click opens Track anything and right-click opens settings. `/clair help` lists the commands, and
+  `/clair` alone still opens settings.
+- The "Show the minimap button" setting is gone: NorgannonDB > Minimap pins any add-on.
+- Settings asked for in combat open when the fight ends.
+
 ## 0.9.6, 2026-11-06
 
 - **Quest colours in the tracker:** the colour down the left side of each row can now be turned off

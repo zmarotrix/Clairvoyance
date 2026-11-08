@@ -20,10 +20,6 @@ CV:OnReady(function()
     function() return CV:UsesGlobal() and "global" or "char" end,
     function(v) CV:UseGlobal(v == "global") end)
 
-  list:Toggle("Show the minimap button", "Clairvoyance is also in the game's addon menu and opens with /clair.",
-    function() return Core.MinimapButton:IsShown("clairvoyance") end,
-    function(on) Core.MinimapButton:SetShown("clairvoyance", on) end)
-
   list:Header("Quest tracker")
   list:Toggle("Show the quest tracker", "Blizzard's tracker is hidden while Clairvoyance's is on.",
     function() return tracker().shown end, function(on) CV.Tracker:SetShown(on) end)
@@ -134,13 +130,5 @@ CV:OnReady(function()
 
   page:SetScript("OnShow", function() list:Refresh() end)
   CV.settingsPage, CV.settingsList = page, list
-  CV.settingsCategory = Core:AddSettingsPage(page, "Clairvoyance")
+  CV:AddSettingsPage(page)
 end)
-
-function CV:OpenSettings()
-  if self.settingsCategory and Settings and Settings.OpenToCategory then
-    Settings.OpenToCategory(self.settingsCategory:GetID())
-  else
-    Core:OpenSettings()
-  end
-end

@@ -6,19 +6,46 @@ local ADDON = ...
 local Core = NorgannonCore
 local DB = NorgannonDB
 
-Clairvoyance = { addonName = ADDON or "Clairvoyance" }
-local CV = Clairvoyance
-
-if not (Core and Core:Require(1, 13)) or not (DB and DB:RequireSchema(1, 2)) then
-  CV.disabled = true
-  C_Timer.After(5, function()
-    print("|cff4fe3cfClairvoyance|r needs NorgannonDB 1.2 and NorgannonDB Core 1.13 or newer; it is turned off.")
-  end)
+if not (Core and Core.NewAddon) then
+  Clairvoyance = { disabled = true }
+  print("Clairvoyance needs NorgannonDB Core 1.20 or newer; it is turned off.")
   return
 end
 
-CV.PREFIX = "|cff4fe3cfClairvoyance|r"
-function CV:Print(msg) Core:Print(msg, self.PREFIX) end
+Clairvoyance = {}
+local CV = Clairvoyance
+
+-- The suite's plumbing (Core:NewAddon): version checks, the slash command, the minimap row and the add-on menu.
+-- Clairvoyance loads its own saved variables (ownLoad: character or global settings, below) and is ready once the
+-- player is in the world. A click shows or hides the tracker, Shift-click opens Track anything, right-click settings;
+-- /clair alone opens settings, as it always has. Messages inside it are CLAIRVOYANCE_* (CV:Send, CV:Listen).
+Core:NewAddon("clairvoyance", {
+  folder = ADDON, api = { 1, 20 }, data = { 1, 2 }, ownLoad = true,
+  slash = { "/clair", "/clairvoyance", "/cv" },
+  commands = {
+    [""] = function() CV:OpenSettings() end,
+    welcome = { function() CV.Welcome:Show() end, "run this character's first-time setup again" },
+    why = { function(rest)
+      -- /clair why <questId>: is it available, and if not, which rule blocks it
+      local id = tonumber(rest:match("^(%d+)"))
+      if not id then return CV:Print("/clair why <questId>") end
+      local ok, reason = CV.Availability:Why(id)
+      local name = Core.DB:Name("quests", id) or "unknown quest"
+      CV:Print(string.format("%s (%d): %s", name, id, ok and "available" or ("not available: " .. tostring(reason))))
+    end, "<questId>: is a quest available, and if not, why" },
+  },
+  minimap = {
+    clickHint = "show or hide the tracker",
+    onShiftClick = function() CV.Extras:ToggleFinder(Core.MinimapButton.buttons.clairvoyance or UIParent) end,
+    shiftHint = "track anything",
+  },
+})
+if CV.disabled then return end
+
+---The main action (left-click): show or hide the quest tracker.
+function CV:Toggle()
+  CV.Tracker:SetShown(not CV.char.tracker.shown)
+end
 
 -------------------------------------------------------------------------------------------
 -- Saved settings. Settings (filters, automation, tooltips, the quest log, how the tracker looks)
@@ -176,8 +203,6 @@ end
 -- Messages inside Clairvoyance ride on the Core's message bus, prefixed CLAIRVOYANCE_
 -------------------------------------------------------------------------------------------
 
-function CV:Send(message, ...) Core:Send("CLAIRVOYANCE_" .. message, ...) end
-function CV:Listen(message, owner, fn) Core:Listen("CLAIRVOYANCE_" .. message, owner, fn) end
 
 -------------------------------------------------------------------------------------------
 -- Load
@@ -245,58 +270,9 @@ function CV:CheckOtherHelpers()
 end
 CV:OnReady(function() CV:CheckOtherHelpers() end)
 
-Core:RegisterAddon("clairvoyance", { version = C_AddOns and C_AddOns.GetAddOnMetadata(CV.addonName, "Version") or "0.1.0" })
 
 -- the suite's action for entities: show them on the map, through Clairvoyance
 Core:RegisterAction("clairvoyance.track", {
   addon = "clairvoyance", label = "Show on map (Clairvoyance)", kinds = { "npc", "object", "item" },
   run = function(kind, id) if CV.Track then CV:Track(kind, id) end end,
 })
-
--- the minimap button and the client's addon menu: click shows or hides the quest tracker,
--- shift-click opens Track anything, right-click the settings
-local function onClick(button)
-  if not CV.ready then return end
-  if button == "RightButton" then
-    CV:OpenSettings()
-  elseif IsShiftKeyDown() then
-    CV.Extras:ToggleFinder(Core.MinimapButton.buttons.clairvoyance or UIParent)
-  else
-    CV.Tracker:SetShown(not CV.char.tracker.shown)
-  end
-end
-CV.MinimapClick = onClick
-local function tooltip(tt)
-  tt:AddLine("Clairvoyance", .31, .89, .81)
-  tt:AddLine("Your quests on the map, minimap and compass", 1, 1, 1)
-  tt:AddLine("Click: show or hide the tracker  ·  Shift-click: track anything", .43, .4, .32)
-  tt:AddLine("Right-click: settings  ·  Drag: move", .43, .4, .32)
-end
-CV:OnReady(function() Core.MinimapButton:Add("clairvoyance", { onClick = onClick, tooltip = tooltip }) end)
-function Clairvoyance_OnAddonCompartmentClick(_, button) onClick(button) end
-function Clairvoyance_OnAddonCompartmentEnter(_, frame)
-  GameTooltip:SetOwner(frame, "ANCHOR_LEFT")
-  tooltip(GameTooltip)
-  GameTooltip:Show()
-end
-function Clairvoyance_OnAddonCompartmentLeave() GameTooltip:Hide() end
-
-SLASH_CLAIRVOYANCE1, SLASH_CLAIRVOYANCE2, SLASH_CLAIRVOYANCE3 = "/clair", "/clairvoyance", "/cv"
-SlashCmdList["CLAIRVOYANCE"] = function(msg)
-  msg = strtrim(string.lower(msg or ""))
-  local why = tonumber(msg:match("^why%s+(%d+)"))
-  if msg == "" or msg == "settings" then
-    CV:OpenSettings()
-  elseif msg == "welcome" then
-    CV.Welcome:Show()
-  elseif why then
-    -- /clair why <questId>: is it available, and if not, which rule blocks it
-    local ok, reason = CV.Availability:Why(why)
-    local name = Core.DB:Name("quests", why) or "unknown quest"
-    CV:Print(string.format("%s (%d): %s", name, why, ok and "available" or ("not available: " .. tostring(reason))))
-  else
-    CV:Print("/clair - settings")
-    CV:Print("/clair welcome - run this character's first-time setup again")
-    CV:Print("/clair why <questId> - is a quest available, and if not, why")
-  end
-end
