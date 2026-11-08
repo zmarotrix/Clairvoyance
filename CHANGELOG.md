@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.10.0, 2026-11-07
+
+Faster, with nothing changed in how it looks or behaves (docs/clairvoyance-perf-review.md in the suite workspace).
+
+- **The tracker's timed update only moves distances and arrows.** It used to refill every card every half second.
+  Standing still and facing the same way, it now does nothing at all. Everything else on the cards updates when it
+  changes.
+- **Each quest's nearest target is worked out once per update**, not twice in the Nearest sort, and not at all
+  while you stand still.
+- **Kills and loot cost much less.** Progress no longer re-runs the rules for which quests are available nearby,
+  republishes the "!" markers or re-checks bag items. Those happen only when a quest joins or leaves your log. A
+  quest's map pins are rebuilt only when an objective finishes or the quest completes, not on every count. Where an
+  objective happens (an item's drop sources, say) is worked out once per quest, not on every kill.
+- **`/clair perf [seconds | stop | report]`** measures Clairvoyance while you play: the suite profiler's report,
+  plus how many quests and pins Clairvoyance holds and how fast its memory grew.
+
 ## 0.9.9, 2026-11-07
 
 - **Level badges are centred.** The number now fills its badge and the game centres it in the badge's own bounds,

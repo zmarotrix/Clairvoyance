@@ -886,8 +886,9 @@ function Extras:Draw(content, y, width)
   return y
 end
 
----Distances only (the tracker's refresh).
-function Extras:Refresh()
+---Distances only (the tracker's refresh). timersOnly: just put an unanswered "Clear all?" back
+---(the player hasn't moved, so no distance changed).
+function Extras:Refresh(timersOnly)
   for _, h in ipairs(groupLabels) do
     local clear = h.clear
     if clear.armed and GetTime() - clear.armed >= 3 then
@@ -895,6 +896,7 @@ function Extras:Refresh()
       clear.text:SetText("Clear")
     end
   end
+  if timersOnly then return end
   for _, line in ipairs(lines) do
     if line:IsShown() then fillDistance(line) end
   end

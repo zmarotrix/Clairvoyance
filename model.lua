@@ -128,9 +128,32 @@ end
 -- Building
 -------------------------------------------------------------------------------------------
 
+-- Where each objective happens comes from the database, not from progress, so it is worked out
+-- once per quest and objective and kept while the quest is in the log (every kill and loot
+-- rebuilds the quest; an item's drop sources would be gathered and sorted again each time).
+-- questId -> { [i] = { type, targets, kind, entity } }
+local targetCache = {}
+Model.targetCache = targetCache
+
+local function cachedTargets(questId, quest, i, live)
+  local byIndex = targetCache[questId]
+  if not byIndex then
+    byIndex = {}
+    targetCache[questId] = byIndex
+  end
+  local hit = byIndex[i]
+  if hit and hit[1] == live.type then return hit[2], hit[3], hit[4] end
+  local targets, kind, entity = targetsFor(quest, i, live)
+  byIndex[i] = { live.type, targets, kind, entity }
+  return targets, kind, entity
+end
+
 local function build(questId)
   local entry = Core.Player:GetQuest(questId)
-  if not entry then return nil end
+  if not entry then
+    targetCache[questId] = nil
+    return nil
+  end
   local quest = DB:Get("quests", questId)
   local m = {
     id = questId, title = entry.title or (quest and quest.name) or ("Quest " .. questId),
@@ -141,7 +164,7 @@ local function build(questId)
     party = Core.Comms and Core.Comms:GetParty(questId) or {},
   }
   for i, live in ipairs(entry.objectives) do
-    local targets, kind, entity = targetsFor(quest, i, live)
+    local targets, kind, entity = cachedTargets(questId, quest, i, live)
     m.objectives[i] = {
       index = i, text = live.text, name = live.name, type = live.type, current = live.current,
       required = live.required, finished = live.finished, kind = kind, entity = entity, targets = targets,
@@ -160,6 +183,7 @@ function Model:Rebuild(questId)
   else
     self.quests = {}
     for _, id in ipairs(Core.Player:QuestIds()) do self.quests[id] = build(id) end
+    for id in pairs(targetCache) do if not self.quests[id] then targetCache[id] = nil end end
   end
   CV:Send("MODEL_UPDATED", questId)
 end
@@ -196,6 +220,7 @@ Core:Listen("NORGANNON_QUESTLOG_UPDATED", "clairvoyance.model", function(_, chan
   for id in pairs(touched) do
     if Core.Player:HasQuest(id) then Model:Rebuild(id) else
       Model.quests[id] = nil
+      targetCache[id] = nil
       CV:Send("MODEL_UPDATED", id)
     end
   end

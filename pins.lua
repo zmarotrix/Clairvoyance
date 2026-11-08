@@ -108,6 +108,20 @@ local function addTarget(list, target, spec)
   end
 end
 
+-- What a quest's pins depend on: hidden or not, complete, which objectives are finished, and
+-- the targets. Counts don't matter (tooltips read them live), so a kill that only moves a count
+-- keeps the pins as they are.
+local shapes = {}   -- questId -> the shape its pins were built for
+
+local function shapeOf(m, hidden)
+  if hidden or not m then return "-" end
+  local parts = { tostring(m.complete) }
+  for i, o in ipairs(m.objectives) do parts[i + 1] = (o.finished and "1" or "0") .. tostring(o.targets) end
+  for _, t in ipairs(m.turnins) do parts[#parts + 1] = t.kind .. t.id end
+  return table.concat(parts, ",")
+end
+Pins.ShapeOf = shapeOf
+
 local function buildQuest(questId)
   local m = not CV:IsHiddenOnMap(questId) and CV.Model:Get(questId) or nil
   local objectives, turnins = {}, {}
@@ -142,6 +156,7 @@ local function publish()
     end
     return all
   end
+  Pins.ForgetNearest()
   Core.Map:SetPins(OWNER_OBJECTIVES, filters.objectives and flatten(Pins.objectives) or nil)
   Core.Map:SetPins(OWNER_TURNINS, filters.turnins and flatten(Pins.turnins) or nil)
   CV:Send("PINS_UPDATED")
@@ -149,10 +164,17 @@ end
 
 function Pins:Rebuild(questId)
   if questId then
+    local shape = shapeOf(CV.Model:Get(questId), CV:IsHiddenOnMap(questId))
+    if shapes[questId] == shape then return end   -- only counts moved: the pins stand
+    shapes[questId] = shape ~= "-" and shape or nil
     buildQuest(questId)
   else
     self.objectives, self.turnins = {}, {}
-    for _, m in ipairs(CV.Model:List()) do buildQuest(m.id) end
+    wipe(shapes)
+    for _, m in ipairs(CV.Model:List()) do
+      shapes[m.id] = shapeOf(m, CV:IsHiddenOnMap(m.id))
+      buildQuest(m.id)
+    end
   end
   publish()
 end
@@ -240,11 +262,31 @@ CV:Listen("FILTERS_CHANGED", "pins", function() publish() Pins:RebuildAvailable(
 -- Distance: the nearest unfinished objective (or the turn-in once the quest is complete)
 -------------------------------------------------------------------------------------------
 
+-- Answers are remembered until the player moves or the pins change: the tracker asks for every
+-- quest more than once per update (the Nearest order, then each card), and nothing changes while
+-- you stand still.
+local nearCache, cacheX, cacheY, cacheInstance = {}, nil, nil, nil
+
+function Pins.ForgetNearest() wipe(nearCache) end
+
 ---{ pin, distance (yards), angle (world, radians) } of the quest's nearest target, or nil (other
 ---continent, instance, or nothing known). objectiveIndex limits it to one objective.
 function Pins:Nearest(questId, objectiveIndex)
   local px, py, instance = HBD:GetPlayerWorldPosition()
   if not px or Core.IsSecret(px) then return nil end
+  if px ~= cacheX or py ~= cacheY or instance ~= cacheInstance then
+    wipe(nearCache)
+    cacheX, cacheY, cacheInstance = px, py, instance
+  end
+  local key = objectiveIndex and (questId .. ":" .. objectiveIndex) or questId
+  local known = nearCache[key]
+  if known ~= nil then return known or nil end
+  local found = self:FindNearest(questId, objectiveIndex, px, py, instance)
+  nearCache[key] = found or false
+  return found
+end
+
+function Pins:FindNearest(questId, objectiveIndex, px, py, instance)
   local m = CV.Model:Get(questId)
   local list = m and m.complete == true and self.turnins[questId] or self.objectives[questId]
   local best, bestD2

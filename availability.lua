@@ -194,9 +194,19 @@ Core:Listen("NORGANNON_WORLDMAP_CHANGED", "clairvoyance.availability", function(
   CV:Send("AVAILABLE_UPDATED", mapArea)
 end)
 -- anything that changes the rules' answers
-for _, message in ipairs({ "NORGANNON_QUESTLOG_UPDATED", "NORGANNON_QUEST_TURNED_IN", "NORGANNON_LEVEL_CHANGED",
-  "NORGANNON_SKILLS_CHANGED", "NORGANNON_REPUTATION_CHANGED" }) do
-  Core:Listen(message, "clairvoyance.availability", function()
-    if CV.ready then Core:NextFrame(function() Availability:Invalidate() end, "clairvoyance.availability") end
-  end)
+local function invalidateSoon()
+  if CV.ready then Core:NextFrame(function() Availability:Invalidate() end, "clairvoyance.availability") end
 end
+for _, message in ipairs({ "NORGANNON_QUEST_TURNED_IN", "NORGANNON_LEVEL_CHANGED", "NORGANNON_SKILLS_CHANGED",
+  "NORGANNON_REPUTATION_CHANGED" }) do
+  Core:Listen(message, "clairvoyance.availability", invalidateSoon)
+end
+
+---Whether a quest log change can change what's available: only quests joining or leaving the log
+---do (the rules ask "in the log?", never about progress). Every kill and loot is a progress change.
+function Availability.LogChangeMatters(changes)
+  return type(changes) ~= "table" or #(changes.accepted or {}) > 0 or #(changes.removed or {}) > 0
+end
+Core:Listen("NORGANNON_QUESTLOG_UPDATED", "clairvoyance.availability", function(_, changes)
+  if Availability.LogChangeMatters(changes) then invalidateSoon() end
+end)

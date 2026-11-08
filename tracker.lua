@@ -16,6 +16,7 @@ local CV = Clairvoyance
 if CV.disabled then return end
 local UI = Core.UI
 local C = UI.C
+local HBD = LibStub("HereBeDragons-NorgannonCore-2.0")
 
 local Tracker = {}
 CV.Tracker = Tracker
@@ -337,6 +338,24 @@ function Tracker:ShowTooltip(row, m)
   GameTooltip:Show()
 end
 
+-- distance and direction (setting: tracker.arrows turns both off; no lookups then)
+local function fillWay(row, m)
+  local showWay = CV.char.tracker.arrows ~= false
+  local near = showWay and CV.Pins:Nearest(m.id)
+  if near then
+    row.dist:SetText(yards(near.distance))
+    local facing = GetPlayerFacing()
+    row.arrow:SetShown(facing ~= nil and not Core.IsSecret(facing))
+    if facing and not Core.IsSecret(facing) then row.arrow:SetRotation(near.angle - facing) end
+    local tc = m.complete == true and C.gold or C.muted
+    row.arrow:SetVertexColor(tc[1], tc[2], tc[3])
+    row.dist:SetTextColor(tc[1], tc[2], tc[3])
+  else
+    row.dist:SetText(showWay and m.complete == true and m.turnins[1] and "other zone" or "")
+    row.arrow:Hide()
+  end
+end
+
 -- Fills a row from the model; returns its height. values only = no anchors or visibility changes
 -- that alter the layout (used in combat).
 local function fillRow(row, m, valuesOnly)
@@ -361,21 +380,7 @@ local function fillRow(row, m, valuesOnly)
     row.title:SetTextColor(COMPLETE[1], COMPLETE[2], COMPLETE[3])
   end
 
-  -- distance and direction (setting: tracker.arrows turns both off; no lookups then)
-  local showWay = CV.char.tracker.arrows ~= false
-  local near = showWay and CV.Pins:Nearest(m.id)
-  if near then
-    row.dist:SetText(yards(near.distance))
-    local facing = GetPlayerFacing()
-    row.arrow:SetShown(facing ~= nil and not Core.IsSecret(facing))
-    if facing and not Core.IsSecret(facing) then row.arrow:SetRotation(near.angle - facing) end
-    local tc = m.complete == true and C.gold or C.muted
-    row.arrow:SetVertexColor(tc[1], tc[2], tc[3])
-    row.dist:SetTextColor(tc[1], tc[2], tc[3])
-  else
-    row.dist:SetText(showWay and m.complete == true and m.turnins[1] and "other zone" or "")
-    row.arrow:Hide()
-  end
+  fillWay(row, m)
   row.summary:SetText(Tracker.Summary(m))
   local pc = Tracker.ProgressColor(Tracker.Progress(m), 1) or C.muted
   row.summary:SetTextColor(pc[1], pc[2], pc[3])
@@ -736,22 +741,56 @@ function Tracker.MaxListHeight()
   return screen * MAX_HEIGHT_SHARE
 end
 
----Updates distances and progress; re-sorts nearest-first only when the new order has held for
----RESORT_AFTER seconds, so rows don't jump while you walk. valuesOnly: never move rows (combat).
-function Tracker:Refresh(valuesOnly)
-  if not f or not f:IsShown() or CV.char.tracker.collapsed then return end
-  if not valuesOnly and CV.char.tracker.sort == "near" then
-    local desired = sorted(visibleQuests())
-    if not sameOrder(desired, order) then
-      if pendingOrder and sameOrder(desired, pendingOrder) then
-        if GetTime() - pendingSince >= RESORT_AFTER then return self:Layout() end
-      else
-        pendingOrder, pendingSince = desired, GetTime()
-      end
+-- Nearest-first: re-sorts only when the new order has held for RESORT_AFTER seconds, so rows
+-- don't jump while you walk. Returns true when it laid the tracker out again.
+local function resortNearest()
+  if CV.char.tracker.sort ~= "near" then return false end
+  local desired = sorted(visibleQuests())
+  if not sameOrder(desired, order) then
+    if pendingOrder and sameOrder(desired, pendingOrder) then
+      if GetTime() - pendingSince >= RESORT_AFTER then Tracker:Layout() return true end
     else
-      pendingOrder = nil
+      pendingOrder, pendingSince = desired, GetTime()
+    end
+  else
+    pendingOrder = nil
+  end
+  return false
+end
+
+local lastX, lastY, lastInstance, lastFacing
+
+---The timed update (tracker.refresh): distances, arrows and the Nearest order, the only things
+---that change as you move. Everything else on the cards changes by event (Layout, Refresh).
+---Standing still and facing the same way, it does nothing. force: update even so (the pins
+---changed).
+function Tracker:Tick(force)
+  if not f or not f:IsShown() or CV.char.tracker.collapsed then return end
+  local x, y, instance = HBD:GetPlayerWorldPosition()
+  if Core.IsSecret(x) then x, y, instance = nil, nil, nil end
+  local facing = GetPlayerFacing()
+  if Core.IsSecret(facing) then facing = nil end
+  local still = x == lastX and y == lastY and instance == lastInstance and facing == lastFacing
+  if still and not force and not pendingOrder then
+    if CV.Extras then CV.Extras:Refresh(true) end   -- timers only
+    return
+  end
+  lastX, lastY, lastInstance, lastFacing = x, y, instance, facing
+  if not InCombatLockdown() and resortNearest() then return end
+  for _, row in ipairs(rows) do
+    if row:IsShown() and row.m then
+      local m = CV.Model:Get(row.m.id)
+      if m then fillWay(row, m) end
     end
   end
+  if CV.Extras then CV.Extras:Refresh() end
+end
+
+---Fills every card again from the model (colours, progress, distances); re-sorts nearest-first
+---like Tick. valuesOnly: never move rows (combat).
+function Tracker:Refresh(valuesOnly)
+  if not f or not f:IsShown() or CV.char.tracker.collapsed then return end
+  if not valuesOnly and resortNearest() then return end
   for _, row in ipairs(rows) do
     if row:IsShown() and row.m then
       local m = CV.Model:Get(row.m.id)
@@ -957,7 +996,7 @@ local function build()
     elapsed = elapsed + dt
     if elapsed < (CV.char.tracker.refresh or REFRESH) then return end
     elapsed = 0
-    Tracker:Refresh(InCombatLockdown())
+    Tracker:Tick()
   end)
   Tracker.frame = f
 end
@@ -1023,6 +1062,8 @@ CV:Listen("SETTINGS_CHANGED", "tracker", function()
   f.sort:Select(t.sort, true)
   Tracker:SetShown(t.shown)
 end)
-CV:Listen("PINS_UPDATED", "tracker", function() Tracker:Refresh(InCombatLockdown()) end)
+CV:Listen("PINS_UPDATED", "tracker", function() Tracker:Tick(true) end)   -- new pins, new distances
+-- level colours are relative to the player's level
+Core:Listen("NORGANNON_LEVEL_CHANGED", "clairvoyance.tracker", function() Tracker:Refresh(true) end)
 Core:Listen("NORGANNON_QUEST_COLOR_CHANGED", "clairvoyance.tracker", function() Tracker:Refresh(true) end)
 Core:On("PLAYER_REGEN_ENABLED", "clairvoyance.tracker", function() if layoutPending then Tracker:Layout() end end)

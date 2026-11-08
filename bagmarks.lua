@@ -115,7 +115,10 @@ end
 
 CV:OnReady(function() BagMarks:Refresh() end)
 Core:On("BAG_UPDATE_DELAYED", "clairvoyance.bagmarks", refreshSoon)
-Core:Listen("NORGANNON_QUESTLOG_UPDATED", "clairvoyance.bagmarks", function() BagMarks:Reset() end)
+-- only quests joining or leaving the log change which items count (not progress on them)
+Core:Listen("NORGANNON_QUESTLOG_UPDATED", "clairvoyance.bagmarks", function(_, changes)
+  if CV.Availability and CV.Availability.LogChangeMatters(changes) then BagMarks:Reset() end
+end)
 Core:Listen("NORGANNON_BAG_BUTTON_UPDATED", "clairvoyance.bagmarks", function(_, button)
   if CV.ready then refreshButton(button) end
 end)

@@ -33,6 +33,7 @@ Core:NewAddon("clairvoyance", {
       local name = Core.DB:Name("quests", id) or "unknown quest"
       CV:Print(string.format("%s (%d): %s", name, id, ok and "available" or ("not available: " .. tostring(reason))))
     end, "<questId>: is a quest available, and if not, why" },
+    perf = { function(rest) CV.Perf.Command(rest) end, "[seconds | stop | report]: measure Clairvoyance while you play" },
   },
   minimap = {
     clickHint = "show or hide the tracker",
