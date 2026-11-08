@@ -67,13 +67,20 @@ function Availability.GameDifficulty(questId)
   return GAME_DIFFICULTY[d]
 end
 
----The colour of a quest (in your log or not): the game's own rating, else the level rule.
+---The colour of a quest you haven't taken: the level rule. The game's rating can't be used here:
+---for a quest outside the log the client doesn't rate it properly (0.10.2 trusted it, and every
+---low-level quest in Dun Morogh came back yellow).
 function Availability.QuestColor(questId, level)
-  local key = Availability.GameDifficulty(questId)
-  if key then return Core.UI.C[key] end
   return Core.UI.Difficulty(level, Core.Player.level or UnitLevel("player") or 1)
 end
-Availability.LogQuestColor = Availability.QuestColor
+
+---The colour of a quest in your log: the game's own rating (what Forever's quest log shows), else
+---the level rule.
+function Availability.LogQuestColor(questId, level)
+  local key = Availability.GameDifficulty(questId)
+  if key then return Core.UI.C[key] end
+  return Availability.QuestColor(questId, level)
+end
 
 ---Can the player take this quest now? Returns true, or false and a reason. q is the decoded
 ---NorgannonDB record (tests pass their own).
@@ -170,7 +177,7 @@ function Availability:ForArea(area)
       if #starters > 0 then
         local levelless = Availability.Levelless(q)
         local qlevel = (q.level and q.level > 0 and not levelless) and q.level or level
-        -- grey or not as the game rates it (the quest log's colours), else by the level rule
+        -- grey or not by the level rule (the game's rating isn't reliable for quests not taken)
         local color = Availability.QuestColor(id, qlevel)
         list[#list + 1] = {
           id = id, quest = q, starters = starters, level = qlevel,

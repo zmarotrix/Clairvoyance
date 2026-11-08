@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.10.3, 2026-11-08
+
+- **Low-level "!" markers are hidden again.** 0.10.2 rated quests you haven't taken by the game's rating, but the
+  client doesn't rate quests outside your log properly, so every low-level quest showed as a normal "!". Quests you
+  can pick up (grey markers, their tooltips, auto-accept's low-level skip) go by the level rule again. Quests in your
+  log keep the game's rating from 0.10.1, so the tracker still matches the quest log.
+
 ## 0.10.2, 2026-11-08
 
 - **Quests you can pick up are rated by the game too.** Whether a "!" is grey (and hidden unless low-level quests are
