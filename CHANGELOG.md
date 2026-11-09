@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.11.1, 2026-11-08
+
+- **Hide an item's quest mark** with a key: set one in Key Bindings, under AddOns, Clairvoyance, then press it over the
+  item. The same key shows it again. It's for good and across your characters, and "Show them all again" in the
+  settings brings back every hidden mark.
+- **An item's tooltip says why it's marked.** Quests in your log were already listed with your progress. Now quests
+  you could take are listed too, up to four, with their level. A last faint line names the key to hide the mark, or
+  says it's hidden.
+
 ## 0.11.0, 2026-11-08
 
 - **Two quest marks in your bags, and none over the game's own.** A gold "?", the game's turn-in mark, is on items a quest

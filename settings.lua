@@ -110,6 +110,12 @@ CV:OnReady(function()
   list:Toggle("Mark quest items", "A gold \"?\" on items a quest in your log needs, and a silver diamond on items a quest you could take needs. Items that start a quest keep the game's own \"!\".",
     function() return CV.db.bagMarks end,
     function(on) CV.db.bagMarks = on CV.BagMarks:Reset() end)
+  list:Buttons("Hidden quest marks", "Hide one item's mark with a key on it: Key Bindings, Clairvoyance. Its tooltip names the quests it's for.",
+    { { "Show them all again", function()
+      local n = CV.BagMarks.HiddenCount()
+      CV.BagMarks:ShowAll()
+      CV:Print(n == 1 and "1 quest mark shows again." or (n .. " quest marks show again."))
+    end } })
 
   list:Header("Tracking, gathering and rares")
   list:Toggle("Tracked things", "What you track with the magnifier in the tracker or Track… on the world map.",

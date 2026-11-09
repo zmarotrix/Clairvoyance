@@ -7,6 +7,9 @@
 -- An item that starts a quest already gets the game's own "!" over its whole icon, and quest items get the
 -- game's gold border, so neither gets a mark of ours on top: that hid the game's "!" and said the same thing.
 --
+-- Any item's mark can be hidden, for good, with a key on the hovered item (Key Bindings, Clairvoyance); the
+-- settings bring them all back. Its tooltip names the quests it's for, so you can see why it's marked.
+--
 -- Marks are separate frames that take no mouse, kept in a table of our own, so nothing is written
 -- onto Blizzard's buttons and clicks reach them as before. Any other bag window built from the game's
 -- buttons gets them by sending NORGANNON_BAG_BUTTON_UPDATED (button).
@@ -20,6 +23,7 @@ CV.BagMarks = BagMarks
 local MARK_SIZE = 16
 local DIAMOND_SIZE = 12
 local SILVER = { .82, .87, .95 }
+BagMarks.SILVER = SILVER
 
 local marks = setmetatable({}, { __mode = "k" })   -- item button -> its mark
 BagMarks.marks = marks
@@ -43,6 +47,31 @@ local function couldTake(questId)
   return ok or why == "level too low"
 end
 
+---The items whose mark the player hid: [itemId] = true, account-wide.
+local function hiddenMarks()
+  CV.db.hiddenBagMarks = CV.db.hiddenBagMarks or {}
+  return CV.db.hiddenBagMarks
+end
+
+function BagMarks.IsHidden(itemId) return hiddenMarks()[itemId] == true end
+
+---The quests a player could take that want this item, or that it starts: { questId }, without the ones in the log.
+function BagMarks.CouldTake(itemId)
+  local out, seen = {}, {}
+  local info = Core.DB:ItemInfo(itemId)
+  if not info then return out end
+  local P = Core.Player
+  local function consider(questId)
+    if questId and not seen[questId] and not P:HasQuest(questId) and couldTake(questId) then
+      seen[questId] = true
+      out[#out + 1] = questId
+    end
+  end
+  for _, questId in ipairs(info.objective) do consider(questId) end
+  consider(info.startQuest)
+  return out
+end
+
 ---"have" if a quest in your log needs the item, "can" if one you could take does, or false.
 local function questStateOf(itemId)
   local info = Core.DB:ItemInfo(itemId)
@@ -64,6 +93,7 @@ end
 function BagMarks.QuestState(bag, slot)
   local ok, itemId = pcall(C_Container.GetContainerItemID, bag, slot)
   if not ok or not itemId or Core.IsSecret(itemId) then return nil end
+  if BagMarks.IsHidden(itemId) then return nil end
   if C_Container.GetContainerItemQuestInfo then
     local okInfo, quest = pcall(C_Container.GetContainerItemQuestInfo, bag, slot)
     if okInfo and type(quest) == "table" and not Core.IsSecret(quest.questID) and quest.questID then
@@ -71,6 +101,11 @@ function BagMarks.QuestState(bag, slot)
       return nil              -- the game's "!" is on it
     end
   end
+  return BagMarks.ItemState(itemId)
+end
+
+---What the database says about an item, whatever slot it's in: "have", "can" or nil. Hidden marks count.
+function BagMarks.ItemState(itemId)
   if known[itemId] == nil then known[itemId] = questStateOf(itemId) end
   return known[itemId] or nil
 end
@@ -146,6 +181,73 @@ end
 function BagMarks:Reset()
   wipe(known)
   refreshSoon()
+  -- and every button that has had a mark, wherever it is: another add-on's bag window too
+  Core:NextFrame(function()
+    if CV.ready then
+      for button in pairs(marks) do refreshButton(button) end
+    end
+  end, "clairvoyance.bagmarks.all")
+end
+
+---Hides an item's mark, or shows it again.
+function BagMarks:SetHidden(itemId, hidden)
+  hiddenMarks()[itemId] = hidden and true or nil
+  self:Reset()
+end
+
+---How many marks are hidden.
+function BagMarks.HiddenCount()
+  local n = 0
+  for _ in pairs(hiddenMarks()) do n = n + 1 end
+  return n
+end
+
+function BagMarks:ShowAll()
+  wipe(hiddenMarks())
+  self:Reset()
+end
+
+---The item under the mouse: a bag button's, or any item tooltip's.
+function BagMarks.Hovered()
+  local foci = rawget(_G, "GetMouseFoci") and GetMouseFoci()
+  local focus = type(foci) == "table" and foci[1]
+  if focus and not Core.IsSecret(focus) and focus.GetBagID and focus.GetID then
+    local ok, bag = pcall(focus.GetBagID, focus)
+    local okSlot, slot = pcall(focus.GetID, focus)
+    if ok and okSlot and bag and slot and not Core.IsSecret(bag) then
+      local okId, id = pcall(C_Container.GetContainerItemID, bag, slot)
+      if okId and id and not Core.IsSecret(id) then return id end
+    end
+  end
+  if GameTooltip:IsShown() and GameTooltip.GetItem then
+    local _, link = GameTooltip:GetItem()
+    if type(link) == "string" and not Core.IsSecret(link) then return tonumber(link:match("item:(%d+)")) end
+  end
+end
+
+---The key binding: hides the hovered item's mark, or shows it again.
+function BagMarks:ToggleHovered()
+  local id = self.Hovered()
+  if not id then return end
+  local name = Core.DB:Name("items", id) or ("item " .. id)
+  if self.IsHidden(id) then
+    self:SetHidden(id, false)
+    CV:Print(name .. ": its quest mark shows again.")
+  else
+    self:SetHidden(id, true)
+    CV:Print(name .. ": quest mark hidden. The same key shows it again, or Show them all in the settings.")
+  end
+end
+
+---The tooltip's last line for a marked or hidden item, about the key: nil for an item with no mark.
+function BagMarks.TooltipHint(itemId)
+  if not CV.db.bagMarks then return nil end
+  local key = rawget(_G, "GetBindingKey") and GetBindingKey("CLAIRVOYANCE_BAGMARK")
+  if BagMarks.IsHidden(itemId) then
+    return "Quest mark hidden" .. (key and (". " .. key .. " shows it again.") or ".")
+  end
+  if not BagMarks.ItemState(itemId) then return nil end
+  return key and (key .. ": hide this quest mark") or "Hide this quest mark: set a key in Key Bindings, Clairvoyance"
 end
 
 CV:OnReady(function() BagMarks:Refresh() end)
@@ -158,3 +260,7 @@ Core:On("PLAYER_LEVEL_UP", "clairvoyance.bagmarks.level", function() BagMarks:Re
 Core:Listen("NORGANNON_BAG_BUTTON_UPDATED", "clairvoyance.bagmarks", function(_, button)
   if CV.ready then refreshButton(button) end
 end)
+
+-- Key Bindings, under AddOns
+BINDING_HEADER_CLAIRVOYANCE = "Clairvoyance"
+BINDING_NAME_CLAIRVOYANCE_BAGMARK = "Hide or show the quest mark on the hovered item"

@@ -16,6 +16,8 @@ local C = UI.C
 local Tips = {}
 CV.Tooltips = Tips
 
+local MAX_COULD = 4      -- quests you could take, listed on an item's tooltip before "and N more"
+
 -------------------------------------------------------------------------------------------
 -- Index: which objectives and turn-ins each entity takes part in (from the quest model)
 -------------------------------------------------------------------------------------------
@@ -110,6 +112,22 @@ function Tips:AddLines(tt, kind, id, seen)
       seen["s" .. start] = true
       line("Starts a quest: " .. (Core.DB:Name("quests", start) or ("Quest " .. start)), C.gold)
     end
+    -- quests you could take that want it: what the silver mark in the bags means
+    local could, shown = CV.BagMarks.CouldTake(id), 0
+    for _, questId in ipairs(could) do
+      if not seen["s" .. questId] and not seen["c" .. questId] then
+        seen["c" .. questId] = true
+        shown = shown + 1
+        if shown <= MAX_COULD then
+          local q = DB:Get("quests", questId)
+          local level = q and q.level and q.level > 0 and (" (" .. q.level .. ")") or ""
+          line("For a quest you could take: " .. (Core.DB:Name("quests", questId) or ("Quest " .. questId)) .. level, CV.BagMarks.SILVER)
+        end
+      end
+    end
+    if shown > MAX_COULD then line(string.format("   and %d more", shown - MAX_COULD), CV.BagMarks.SILVER) end
+    local hint = CV.BagMarks.TooltipHint(id)
+    if hint then line(hint, C.faint) end
   end
   return added
 end
