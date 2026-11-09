@@ -30,7 +30,8 @@ CV.Extras = Extras
 local OWNER_TRACKING, OWNER_GATHERING, OWNER_RARES = "clairvoyance.tracking", "clairvoyance.gathering", "clairvoyance.rares"
 local VIOLET = UI.Hex("b48cff")
 local NEXT_BAND = 25              -- skill points ahead whose nodes show dimmed
-local ITEM_SOURCES = 8            -- an item tracks its most likely sources
+local LIKELY_DROP = 1             -- percent: below this a source is drawn small and faint
+local UNLIKELY_ALPHA = .45
 local NOTABLE_DROP = 5            -- percent: a rare's drops worth naming
 local NAMED_LOOT_SOURCES = 5      -- an item dropped by at most this many NPCs is named loot
 local RARE_ALERT_AGAIN = 300      -- seconds before the same rare is announced again
@@ -92,17 +93,22 @@ local function friendly(code)
   return not mine or code:find(mine, 1, true) ~= nil
 end
 
-local function spawnPins(list, kind, id, spec, onlyArea)
+-- shared: a pin reads the rest of its fields from its spec (Core's map only indexes pins, never
+-- copies or walks them), so an item tracked from 10,000 spawns stays small
+local function inherit(pin, spec) return setmetatable(pin, spec.__meta or { __index = spec }) end
+
+local function spawnPins(list, kind, id, spec, onlyArea, shared)
   local record = DB:Get(kind, id)
   local spawns = record and record.spawns
   if not spawns then return end
   local title = spec.title or Core.DB:Name(kind, id)
+  if shared and not spec.__meta then spec.__meta = { __index = spec } end
   for area, points in pairs(spawns) do
     if not onlyArea or area == onlyArea then
       for _, p in ipairs(points) do
         if p[1] and p[1] >= 0 then
           local pin = { area = area, x = p[1], y = p[2], title = title, kind = kind, id = id }
-          for k, v in pairs(spec) do if pin[k] == nil then pin[k] = v end end
+          if shared then inherit(pin, spec) else for k, v in pairs(spec) do if pin[k] == nil then pin[k] = v end end end
           list[#list + 1] = pin
         end
       end
@@ -205,7 +211,7 @@ function Extras:TrackedMenu(owner, key)
   local entry
   for _, e in ipairs(CV.char.tracked) do if e.key == key then entry = e end end
   if not entry then return end
-  local nearest = function() return nearestOf(Extras:TrackedPins(key)) end
+  local nearest = function() return Extras.NearestTracked(key) end
   Core:ShowActionMenu(owner, nil, nil, { title = entry.name, items = {
     { text = "Point the arrow at the nearest", func = function()
       if not pointArrow(nearest()) then CV:Print("None of these on this continent.") end
@@ -247,6 +253,47 @@ end
 
 local function untrackPin(pin) CV:Untrack(pin.trackKey) end
 
+---Every place an item comes from: each NPC that drops it, each object (chests, trunks, nodes)
+---that holds it, each vendor, and one level down the containers it comes in (a trunk fished up
+---from a pool: the pool). { kind, id, chance, via, likely } with the best odds first.
+function Extras.ItemSources(itemIds, name)
+  local out, seen = {}, {}
+  local function add(kind, id, chance, via)
+    local key = kind .. id
+    local likely = chance == nil or chance <= 0 or chance >= LIKELY_DROP
+    local old = seen[key]
+    if old then
+      if (chance or 100) > (old.chance or 100) then old.chance, old.via, old.likely = chance, via, likely end
+      return
+    end
+    local src = { kind = kind, id = id, chance = chance, via = via, likely = likely }
+    seen[key] = src
+    out[#out + 1] = src
+  end
+  local function odds(chance) return (chance and chance > 0) and string.format(" (%s%%)", chance) or "" end
+  local function from(item, what, through)
+    local drops = item and item.drops or {}
+    local tail = through and (" (holds " .. name .. ")") or ""
+    for npc, chance in pairs(drops.npcs or {}) do add("npcs", npc, chance, "Drops " .. what .. odds(chance) .. tail) end
+    for obj, chance in pairs(drops.objects or {}) do add("objects", obj, chance, "Holds " .. what .. odds(chance) .. tail) end
+    for npc in pairs(item and item.vendors or {}) do add("npcs", npc, nil, "Sells " .. what .. tail) end
+  end
+  for _, itemId in ipairs(itemIds) do
+    local item = DB:Get("items", itemId)
+    from(item, name)
+    for container in pairs(item and item.drops and item.drops.items or {}) do
+      from(DB:Get("items", container), Core.DB:Name("items", container) or "a container", true)
+    end
+  end
+  table.sort(out, function(a, b)
+    local ca, cb = a.chance or 100, b.chance or 100
+    if ca ~= cb then return ca > cb end
+    if a.kind ~= b.kind then return a.kind < b.kind end
+    return a.id < b.id
+  end)
+  return out
+end
+
 local function buildEntry(entry)
   local list = {}
   local group = "track:" .. entry.key
@@ -257,25 +304,17 @@ local function buildEntry(entry)
   if entry.kind == "npcs" or entry.kind == "objects" then
     for _, id in ipairs(entry.ids) do spawnPins(list, entry.kind, id, spec) end
   elseif entry.kind == "items" then
-    -- where the item comes from: its likeliest drops and every vendor
-    local sources = {}
-    for _, itemId in ipairs(entry.ids) do
-      local item = DB:Get("items", itemId)
-      for npc, chance in pairs(item and item.drops and item.drops.npcs or {}) do sources[#sources + 1] = { "npcs", npc, chance } end
-      for obj, chance in pairs(item and item.drops and item.drops.objects or {}) do sources[#sources + 1] = { "objects", obj, chance } end
-      for npc in pairs(item and item.vendors or {}) do sources[#sources + 1] = { "npcs", npc, 100, true } end
+    local sources = Extras.ItemSources(entry.ids, entry.name)
+    local anyLikely = false
+    for _, src in ipairs(sources) do if src.likely then anyLikely = true break end end
+    for _, src in ipairs(sources) do
+      -- unlikely sources (a 0.02% skeleton) stay on the map, small and faint, unless nothing is likely
+      local faint = anyLikely and not src.likely
+      local s = setmetatable({ via = src.via, likely = src.likely or not anyLikely,
+        alpha = faint and UNLIKELY_ALPHA or nil, size = faint and 9 or spec.size }, { __index = spec })
+      spawnPins(list, src.kind, src.id, s, nil, true)
     end
-    table.sort(sources, function(a, b)
-      if a[3] ~= b[3] then return a[3] > b[3] end
-      return a[2] < b[2]
-    end)
-    for i = 1, math.min(ITEM_SOURCES, #sources) do
-      local s = sources[i]
-      local via = s[4] and ("Sells " .. entry.name) or (s[3] > 0 and string.format("Drops %s (%s%%)", entry.name, s[3]) or ("Drops " .. entry.name))
-      local copy = { via = via }
-      for k, v in pairs(spec) do copy[k] = v end
-      spawnPins(list, s[1], s[2], copy)
-    end
+    list.sources = #sources
   elseif entry.kind == "category" then
     local cat = DB.categories[entry.category] or {}
     for _, kind in ipairs({ "npcs", "objects" }) do
@@ -302,6 +341,13 @@ function Extras:RebuildTracking()
 end
 
 function Extras:TrackedPins(key) return trackedPins[key] or {} end
+
+local function likely(pin) return pin.likely ~= false end
+---The nearest tracked pin: a place with real odds, a faint 0.02% source only when there's no other.
+function Extras.NearestTracked(key)
+  local list = trackedPins[key]
+  return nearestOf(list, likely) or nearestOf(list)
+end
 
 -------------------------------------------------------------------------------------------
 -- Gathering
@@ -545,14 +591,22 @@ local function resultRow(i)
   return row
 end
 
--- has something to put on the map: spawns, or (items) a drop source or vendor
+-- has something to put on the map: spawns, or (items) a drop source, a vendor or a container
+-- that has one (one level down, as Extras.ItemSources goes)
+local function hasSources(item)
+  local drops = item and item.drops
+  return (item and item.vendors and next(item.vendors) ~= nil) or (drops and ((drops.npcs and next(drops.npcs) ~= nil)
+    or (drops.objects and next(drops.objects) ~= nil))) or false
+end
 local function trackable(kind, id)
   local record = DB:Get(kind, id)
   if not record then return false end
   if kind ~= "items" then return record.spawns ~= nil and next(record.spawns) ~= nil end
-  local drops = record.drops
-  return (record.vendors and next(record.vendors) ~= nil) or (drops and ((drops.npcs and next(drops.npcs) ~= nil)
-    or (drops.objects and next(drops.objects) ~= nil))) or false
+  if hasSources(record) then return true end
+  for container in pairs(record.drops and record.drops.items or {}) do
+    if hasSources(DB:Get("items", container)) then return true end
+  end
+  return false
 end
 Extras.Trackable = trackable
 
@@ -833,10 +887,13 @@ function Extras:Draw(content, y, width)
       local key = entry.key
       line.trackKey, line.highlight, line.category = key, "track:" .. key, entry.category
       line.name:SetText(entry.name)
-      local n = #Extras:TrackedPins(key)
-      line.detail = function() return n > 1 and ("×" .. n) or "" end
+      local pins = Extras:TrackedPins(key)
+      local n = pins.sources or #pins
+      local unit = pins.sources and (n == 1 and " source" or " sources") or ""
+      line.detail = function() return n > 1 and (pins.sources and (n .. unit) or ("×" .. n)) or "" end
       line.tipTitle, line.tipText = entry.name, KIND_LABEL[entry.kind]
-      line.nearest = function() return nearestOf(Extras:TrackedPins(key)) end
+      -- the nearest place with real odds; a faint 0.02% source only when there's nothing else
+      line.nearest = function() return Extras.NearestTracked(key) end
       line.remove:Show()
       line.dist:ClearAllPoints()
       line.dist:SetPoint("RIGHT", line.remove, "LEFT", -4, 0)

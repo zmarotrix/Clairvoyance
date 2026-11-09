@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.12.0, 2026-11-09
+
+- **Tracking an item shows everywhere it comes from**, not just its 8 likeliest sources: every enemy that can drop it,
+  every chest or object that holds it, every vendor, and where the containers it comes in are found (a trunk fished
+  from a pool marks the pool). Tracking Wool Cloth now marks 795 sources.
+- Long shots (under 1%, like a skeleton's 0.02%) stay on the map but small and faint, so the real farming spots stand
+  out. When an item has no likely source at all, every source is drawn full.
+- The tracker's distance and the arrow go to the nearest likely source, and the tracker line counts sources
+  ("795 sources") rather than map pins.
+
 ## 0.11.2, 2026-11-08
 
 - **Quest-givers correct the "!" markers.** Many quests new to WoW Forever have no prerequisites in the data, so a
