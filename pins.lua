@@ -91,6 +91,22 @@ local function hideGiverPin(pin)
   CV:SetHiddenOnMap(ids, true)
 end
 
+-- Objective rings (setting objectiveRings): a quest's dots keep its colour, and each objective
+-- gets its own border, so "kill boars" and "kill wolves" read apart on the map. The colour goes by
+-- objective number, so a ring keeps its meaning as objectives finish. Only quests with two or
+-- more objectives on the map get rings.
+local RINGS = { { 1, 1, 1 }, { .1, .1, .1 }, { 0, .85, 1 }, { 1, .3, .85 }, { .6, 1, .2 }, { 1, .55, 0 } }
+Pins.RINGS = RINGS
+
+---The ring colour of a quest's objective on the map, or nil when it gets none.
+function Pins.RingOf(m, index)
+  if not (CV.db.objectiveRings and Core.Map.RINGS and m and index) then return nil end
+  local mapped = 0
+  for _, o in ipairs(m.objectives or {}) do if o.targets and #o.targets > 0 then mapped = mapped + 1 end end
+  if mapped < 2 then return nil end
+  return RINGS[(index - 1) % #RINGS + 1]
+end
+
 local function addTarget(list, target, spec)
   local spawns = spawnsOf(target)
   local name = CV.Model.TargetName(target)
@@ -101,7 +117,7 @@ local function addTarget(list, target, spec)
           area = area, x = p[1], y = p[2], icon = spec.icon, quest = spec.quest, layer = spec.layer, size = spec.size,
           cluster = spec.cluster, compass = spec.compass, title = name, tooltip = spec.tooltip,
           objective = spec.objective, onShiftClick = hideQuestPin, shiftHint = "Shift-click: hide this quest on the map",
-          overlapKey = spec.overlapKey, minimap = spec.minimap,
+          overlapKey = spec.overlapKey, minimap = spec.minimap, ring = spec.ring,
         }
       end
     end
@@ -131,7 +147,7 @@ local function buildQuest(questId)
         if not o.finished then
           local key = "q" .. questId .. ":" .. o.index
           local spec = { icon = "pin", quest = questId, layer = 3, cluster = key, compass = key, objective = o.index,
-            tooltip = objectiveTooltip(questId, o.index) }
+            tooltip = objectiveTooltip(questId, o.index), ring = Pins.RingOf(m, o.index) }
           for _, target in ipairs(o.targets) do addTarget(objectives, target, spec) end
         end
       end

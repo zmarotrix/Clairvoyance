@@ -135,6 +135,7 @@ local DEFAULTS = {
     showFarAbove = false,
     questMarksOnMinimap = false,   -- the game draws its own "?" and "!" there
     tooltips = true,
+    objectiveRings = false,   -- each objective's map dots get their own border colour
     rewardMark = true,    -- a gold coin on the quest reward that sells for the most
     bagMarks = true,      -- a small mark on bag slots holding an item that's part of a quest
     rareAlert = true,    -- a quiet chat line when a rare shows up on your nameplates

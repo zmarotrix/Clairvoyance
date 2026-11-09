@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.14.0, 2026-11-09
+
+- **A ring per objective** (setting under Map, off by default). A quest's dots keep its colour, and each of its
+  objectives gets its own border colour, so "kill boars" and "kill wolves" read apart on the map. The colour goes by
+  objective number (white, black, cyan, pink, lime, orange), so a ring keeps its meaning as objectives finish. Only
+  quests with two or more objectives on the map get rings. The tracker shows each objective's ring in the card's
+  margin. Needs NorgannonDB Core with ring pins (Map.RINGS); without it nothing changes.
+
 ## 0.13.0, 2026-11-09
 
 - **Clairvoyance no longer picks quest rewards for you.** The "Choose rewards" switch is gone from the settings and the
