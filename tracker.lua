@@ -112,15 +112,6 @@ end
 -- Quest actions
 -------------------------------------------------------------------------------------------
 
-local function openQuestLog(m)
-  if QuestMapFrame_OpenToQuestDetails then
-    QuestMapFrame_OpenToQuestDetails(m.id)
-  elseif QuestLogFrame then
-    if SelectQuestLogEntry and m.logIndex then SelectQuestLogEntry(m.logIndex) end
-    ShowUIPanel(QuestLogFrame)
-  end
-end
-
 local function linkQuest(m)
   local link = GetQuestLink and GetQuestLink(m.id)
   if not link then
@@ -156,8 +147,9 @@ local function showOnMap(m)
   local near = CV.Pins:Nearest(m.id)
   local uiMap = near and Core.Map.AreaToUiMap(near.pin.area)
   if not uiMap then return end
-  if OpenWorldMap then OpenWorldMap(uiMap) else WorldMapFrame:Show() WorldMapFrame:SetMapID(uiMap) end
-  Core.Map:Pulse("q" .. m.id)   -- the quest's dots grow and shrink so the eye finds them
+  -- selected, so the quest log beside the map opens on it; the dots grow and shrink so the eye finds them
+  if C_QuestLog and C_QuestLog.SetSelectedQuest then C_QuestLog.SetSelectedQuest(m.id) end
+  CV:OpenMap(uiMap, function() Core.Map:Pulse("q" .. m.id) end)
 end
 
 Tracker.ShowOnMap = showOnMap
@@ -184,7 +176,6 @@ end
 local function openMenu(row, m)
   local focused = CV.focus == m.id
   Core:ShowActionMenu(row, "quest", m.id, { title = m.title, items = {
-    { text = "Open in quest log", func = function() openQuestLog(m) end },
     { text = focused and "Stop pointing the arrow here" or "Point the arrow here", func = function() Tracker:Focus(m) end },
     { text = "Show on map", func = function() showOnMap(m) end },
     { text = "Hide from tracker", func = function() CV.char.hidden[m.id] = true Tracker:Layout() end },

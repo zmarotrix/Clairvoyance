@@ -44,6 +44,13 @@ Core:NewAddon("clairvoyance", {
       CV:Print(string.format("  difficulty: game says %s, level rule says %s", CV.Availability.GameDifficulty(id) or "nothing",
         byLevel or "nothing"))
     end, "<questId>: is a quest available, and if not, why" },
+    maptaint = { function()
+      local bad, pins, names = CV.MapTaint()
+      if not bad then return CV:Print("Can't check the map on this client.") end
+      if bad == 0 then return CV:Print(string.format("The map is clean (%d pins checked).", pins)) end
+      CV:Print(string.format("%d of the map's %d pins were touched by add-on code (%s). Toggling the map in combat "
+        .. "may fail until you /reload.", bad, pins, table.concat(names, ", ")))
+    end, "check whether add-on code has tainted the world map's pins (open the map first)" },
     perf = { function(rest) CV.Perf.Command(rest) end, "[seconds | stop | report]: measure Clairvoyance while you play" },
   },
   minimap = {
@@ -55,6 +62,54 @@ Core:NewAddon("clairvoyance", {
 if CV.disabled then return end
 
 ---The main action (left-click): show or hide the quest tracker.
+-- Opening Blizzard's map from add-on code (OpenWorldMap, SetMapID, QuestMapFrame_OpenToQuestDetails)
+-- makes the map build its own quest pins in tainted code. In combat the game blocks them
+-- ("Clairvoyance tried to call the protected function Button:SetPassThroughButtons()"), and pins
+-- made that way stay tainted, so toggling the map can keep failing in combat until /reload.
+-- C_Map.OpenWorldMap is the client's own way to open the map; in combat it waits until combat ends.
+-- Every "Show on map" in Clairvoyance goes through here.
+function CV:OpenMap(uiMap, after)
+  local function open()
+    local cmap = rawget(_G, "C_Map")
+    if cmap and cmap.OpenWorldMap then
+      cmap.OpenWorldMap(uiMap)
+    elseif OpenWorldMap then
+      OpenWorldMap(uiMap)
+    else
+      return
+    end
+    if after then after() end
+  end
+  if InCombatLockdown() then
+    CV:Print("The map opens when combat ends.")
+    Core:AfterCombat(open, "clairvoyance.openmap")
+    return false
+  end
+  open()
+  return true
+end
+
+---How many of the map's own pins hold values written by add-on code (`/clair maptaint`): 0 means the
+---map is clean. With some, toggling the map in combat can fail until /reload.
+function CV.MapTaint()
+  local frame = rawget(_G, "WorldMapFrame")
+  if not (frame and frame.EnumerateAllPins and issecurevariable) then return nil end
+  local pins, bad, by = 0, 0, {}
+  for pin in frame:EnumerateAllPins() do
+    pins = pins + 1
+    for k in pairs(pin) do
+      if type(k) == "string" then
+        local secure, taint = issecurevariable(pin, k)
+        if not secure then bad = bad + 1 by[taint or "?"] = true break end
+      end
+    end
+  end
+  local names = {}
+  for name in pairs(by) do names[#names + 1] = name end
+  table.sort(names)
+  return bad, pins, names
+end
+
 function CV:Toggle()
   CV.Tracker:SetShown(not CV.char.tracker.shown)
 end

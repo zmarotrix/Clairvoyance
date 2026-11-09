@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.12.2, 2026-11-09
+
+- **Fixed "Clairvoyance tried to call the protected function Button:SetPassThroughButtons()"** when toggling the world
+  map, mostly in combat. Clairvoyance opened Blizzard's map and quest log from its own code, which made the map
+  build its quest pins in tainted code, and those pins stayed tainted until a /reload. "Show on map" now opens the map
+  the client's own way (C_Map.OpenWorldMap), and in combat it waits until combat ends.
+- **"Open in quest log" is gone from the quest menu.** Blizzard's quest log can't be opened to a quest from add-on code
+  without the same taint. "Show on map" selects the quest instead, so the quest log beside the map is on it.
+- `/clair maptaint` checks whether add-on code has touched the world map's own pins (open the map first). If a
+  /reload doesn't clear it, it names who did.
+
 ## 0.12.1, 2026-11-09
 
 - **Tracked items show the reasonable sources**, judged against the item's best one. A source is kept when you'd need
