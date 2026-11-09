@@ -121,6 +121,13 @@ CV:OnReady(function()
   list:Toggle("Tracked things", "What you track with the magnifier in the tracker or Track… on the world map.",
     function() return CV.db.filters.tracking end,
     function(on) CV.db.filters.tracking = on CV:Send("FILTERS_CHANGED", "tracking") end)
+  list:Dropdown("Tracked items show", "Which drop sources a tracked item marks, next to its best one. A source is kept "
+    .. "when you'd need at most this many times the kills or loots. Wool Cloth's best is 25%, so 10x keeps 2.5% and up; "
+    .. "an item whose best is 0.5% keeps 0.05% and up. Vendors always show.",
+    { { 3, "The best odds (within 3x)" }, { 10, "Reasonable odds (within 10x)" }, { 30, "Most sources (within 30x)" },
+      { 0, "Everything (long shots faint)" } },
+    function() return CV.db.itemSources or 10 end,
+    function(v) CV.db.itemSources = v CV.Extras:RebuildTracking() end)
   for _, prof in ipairs(CV.Extras.PROFESSIONS) do
     list:Toggle(prof.name .. " nodes", prof.noSkill and "Fishing pools in the zone." or
       ("Nodes you can gather now, and the next " .. 25 .. " skill points' nodes dimmed. Shown when you have " .. prof.name .. "."),

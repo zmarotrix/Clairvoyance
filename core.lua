@@ -82,6 +82,7 @@ local DEFAULTS = {
     tooltips = true,
     bagMarks = true,      -- a small mark on bag slots holding an item that's part of a quest
     rareAlert = true,    -- a quiet chat line when a rare shows up on your nameplates
+    itemSources = 10,    -- a tracked item shows sources within this many times the best one's tries (0 = all)
     auto = { accept = false, turnin = false, reward = false, gossip = false },   -- off unless you turn it on
     questLog = { levels = true, ids = false, buttons = true },
     tracker = { shown = true, sort = "zone", scale = 1, view = "detailed", cardAlpha = .62, bars = true,

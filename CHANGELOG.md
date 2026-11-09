@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.12.1, 2026-11-09
+
+- **Tracked items show the reasonable sources**, judged against the item's best one. A source is kept when you'd need
+  at most 10 times the kills or loots of the best source. Wool Cloth's best drops are around 25%, so a 2.5% drop is
+  kept and a 0.02% skeleton isn't. An item whose best source is 0.5% keeps everything from 0.05% up, so rare items still
+  show. Vendors always show.
+- **New setting, Tracked items show** (Tracking, gathering and rares): the best odds (within 3x), reasonable odds
+  (within 10x, the default), most sources (within 30x), or everything, with the long shots small and faint.
+
 ## 0.12.0, 2026-11-09
 
 - **Tracking an item shows everywhere it comes from**, not just its 8 likeliest sources: every enemy that can drop it,

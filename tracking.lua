@@ -30,8 +30,10 @@ CV.Extras = Extras
 local OWNER_TRACKING, OWNER_GATHERING, OWNER_RARES = "clairvoyance.tracking", "clairvoyance.gathering", "clairvoyance.rares"
 local VIOLET = UI.Hex("b48cff")
 local NEXT_BAND = 25              -- skill points ahead whose nodes show dimmed
-local LIKELY_DROP = 1             -- percent: below this a source is drawn small and faint
-local UNLIKELY_ALPHA = .45
+local UNLIKELY_ALPHA = .45        -- long shots, when "Everything" shows them
+local LONG_SHOT = 10              -- "Everything": sources needing over this many times the best's tries are faint
+-- which sources an item shows (CV.db.itemSources): within N times the tries of the best source; 0 = all
+Extras.ITEM_SOURCE_CHOICES = { 3, 10, 30, 0 }
 local NOTABLE_DROP = 5            -- percent: a rare's drops worth naming
 local NAMED_LOOT_SOURCES = 5      -- an item dropped by at most this many NPCs is named loot
 local RARE_ALERT_AGAIN = 300      -- seconds before the same rare is announced again
@@ -255,12 +257,13 @@ local function untrackPin(pin) CV:Untrack(pin.trackKey) end
 
 ---Every place an item comes from: each NPC that drops it, each object (chests, trunks, nodes)
 ---that holds it, each vendor, and one level down the containers it comes in (a trunk fished up
----from a pool: the pool). { kind, id, chance, via, likely } with the best odds first.
+---from a pool: the pool). { kind, id, chance, via, likely } with the best odds first. likely
+---says whether a source passes the odds setting (Extras.Keeps).
 function Extras.ItemSources(itemIds, name)
   local out, seen = {}, {}
   local function add(kind, id, chance, via)
     local key = kind .. id
-    local likely = chance == nil or chance <= 0 or chance >= LIKELY_DROP
+    local likely = true
     local old = seen[key]
     if old then
       if (chance or 100) > (old.chance or 100) then old.chance, old.via, old.likely = chance, via, likely end
@@ -291,7 +294,26 @@ function Extras.ItemSources(itemIds, name)
     if a.kind ~= b.kind then return a.kind < b.kind end
     return a.id < b.id
   end)
+  local best = Extras.BestOdds(out)
+  for _, src in ipairs(out) do src.likely = Extras.Keeps(src.chance, best, LONG_SHOT) end
   return out
+end
+
+---The best known drop chance among sources (vendors and unknown odds left out), or nil.
+function Extras.BestOdds(sources)
+  local best
+  for _, src in ipairs(sources) do
+    if src.chance and src.chance > 0 and (not best or src.chance > best) then best = src.chance end
+  end
+  return best
+end
+
+---Whether a source with this chance is worth showing next to the best one: at most `within`
+---times the tries (a 25% best and 10x shows 2.5% and up; a 0.5% best shows 0.05% and up).
+---Vendors, unknown odds and within = 0 (everything) always pass.
+function Extras.Keeps(chance, best, within)
+  if not chance or chance <= 0 or not best or not within or within <= 0 then return true end
+  return chance * within >= best
 end
 
 local function buildEntry(entry)
@@ -305,16 +327,21 @@ local function buildEntry(entry)
     for _, id in ipairs(entry.ids) do spawnPins(list, entry.kind, id, spec) end
   elseif entry.kind == "items" then
     local sources = Extras.ItemSources(entry.ids, entry.name)
-    local anyLikely = false
-    for _, src in ipairs(sources) do if src.likely then anyLikely = true break end end
+    local within = CV.db.itemSources or 10
+    local best = Extras.BestOdds(sources)
+    local shown = 0
     for _, src in ipairs(sources) do
-      -- unlikely sources (a 0.02% skeleton) stay on the map, small and faint, unless nothing is likely
-      local faint = anyLikely and not src.likely
-      local s = setmetatable({ via = src.via, likely = src.likely or not anyLikely,
-        alpha = faint and UNLIKELY_ALPHA or nil, size = faint and 9 or spec.size }, { __index = spec })
-      spawnPins(list, src.kind, src.id, s, nil, true)
+      if Extras.Keeps(src.chance, best, within) then
+        -- "Everything": long shots (a 0.02% skeleton) stay on the map, small and faint
+        local faint = within == 0 and not src.likely
+        local s = setmetatable({ via = src.via, likely = not faint,
+          alpha = faint and UNLIKELY_ALPHA or nil, size = faint and 9 or spec.size }, { __index = spec })
+        spawnPins(list, src.kind, src.id, s, nil, true)
+        shown = shown + 1
+      end
     end
-    list.sources = #sources
+    sources = { n = shown }
+    list.sources = sources.n
   elseif entry.kind == "category" then
     local cat = DB.categories[entry.category] or {}
     for _, kind in ipairs({ "npcs", "objects" }) do
