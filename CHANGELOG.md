@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.13.0, 2026-11-09
+
+- **Clairvoyance no longer picks quest rewards for you.** The "Choose rewards" switch is gone from the settings and the
+  welcome. With a choice of rewards, auto turn-in now always stops and leaves the choice to you.
+- **A gold coin marks the reward that sells for the most** (its vendor price times how many you get), on the quest
+  frame's reward choices. Ties mark each one. The coin waits until every choice's price is known, and doesn't show
+  when nothing sells. Setting: Mark the best-selling reward, under Automation, on by default.
+
 ## 0.12.2, 2026-11-09
 
 - **Fixed "Clairvoyance tried to call the protected function Button:SetPassThroughButtons()"** when toggling the world

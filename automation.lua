@@ -5,8 +5,6 @@
 --            are hidden) or you hid them on the map; never when your log is full
 --   turnin   hand in finished quests; with one reward (or none) take it. Never when the turn-in
 --            costs money
---   reward   with a choice of rewards, take the one that sells for the most (a hint for upgrades
---            comes later); without prices for every choice, it leaves the choice to you
 --   gossip   skip the chatter: at an NPC with quests, go straight to a finished quest (turn-in) or
 --            a quest to take (accept); only what the switches above would do anyway
 --
@@ -73,29 +71,21 @@ Core:On("QUEST_PROGRESS", "clairvoyance.auto", function()
   CompleteQuest()
 end)
 
----The reward to take: the only one, or (with the reward switch) the best seller. nil = ask you.
+---The reward to take: the only one (or none). With a choice it's yours: rewards.lua marks the one
+---that sells for the most, but Clairvoyance never picks.
 function Auto.PickReward()
   local n = GetNumQuestChoices and GetNumQuestChoices() or 0
-  if n <= 1 then return n, nil end
-  if not on("reward") then return nil end
-  local best, bestPrice
-  for i = 1, n do
-    local link = GetQuestItemLink("choice", i)
-    if not link then return nil end
-    local price = select(11, GetItemInfo(link))
-    if price == nil then return nil end         -- not cached yet: don't guess
-    if not bestPrice or price > bestPrice then best, bestPrice = i, price end
-  end
-  return best, GetQuestItemLink("choice", best)
+  if n <= 1 then return n end
+  return nil
 end
 
 Core:On("QUEST_COMPLETE", "clairvoyance.auto", function()
   if not on("turnin") then return end
   local id = GetQuestID and GetQuestID()
-  local choice, link = Auto.PickReward()
+  local choice = Auto.PickReward()
   if not choice then return end
   GetQuestReward(choice)
-  say("Turned in " .. questName(id, GetTitleText and GetTitleText()) .. (link and (", took " .. link .. " (best vendor value)") or ""))
+  say("Turned in " .. questName(id, GetTitleText and GetTitleText()))
 end)
 
 -------------------------------------------------------------------------------------------

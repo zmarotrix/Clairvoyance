@@ -135,10 +135,11 @@ local DEFAULTS = {
     showFarAbove = false,
     questMarksOnMinimap = false,   -- the game draws its own "?" and "!" there
     tooltips = true,
+    rewardMark = true,    -- a gold coin on the quest reward that sells for the most
     bagMarks = true,      -- a small mark on bag slots holding an item that's part of a quest
     rareAlert = true,    -- a quiet chat line when a rare shows up on your nameplates
     itemSources = 10,    -- a tracked item shows sources within this many times the best one's tries (0 = all)
-    auto = { accept = false, turnin = false, reward = false, gossip = false },   -- off unless you turn it on
+    auto = { accept = false, turnin = false, gossip = false },   -- off unless you turn it on
     questLog = { levels = true, ids = false, buttons = true },
     tracker = { shown = true, sort = "zone", scale = 1, view = "detailed", cardAlpha = .62, bars = true,
       completeGreen = true, arrows = true, refresh = .5, finished = "inline", edges = true },
@@ -231,6 +232,7 @@ local function bind(account, char)
     CV.db = fill(char.settings, DEFAULTS.settings)
   end
   CV.char = setmetatable({ tracker = trackerView(char) }, { __index = char, __newindex = char })
+  if CV.db.auto then CV.db.auto.reward = nil end   -- the reward-picking switch is gone (0.13.0)
 end
 
 ---Whether global settings exist, and the character that set them up.

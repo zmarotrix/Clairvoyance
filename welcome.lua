@@ -9,8 +9,8 @@
 --               available quests, compass, gathering, rares or automation
 --   Balanced    (recommended) adds available quests, the compass and detailed quest cards
 --   Everything  every feature on: herbs, ore, fishing and rares on the map, rare alerts, quest IDs
---               in the log, and the safe automation (accept, turn in, skip gossip; never picks a
---               reward for you)
+--               in the log, and the automation (accept, turn in, skip gossip; never picks a
+--               reward for you: a gold coin marks the best seller instead)
 -- No preset is a guide: nothing ever tells you which quest to do next.
 
 local Core = NorgannonCore
@@ -22,8 +22,8 @@ local C = UI.C
 local Welcome = {}
 CV.Welcome = Welcome
 
-local NONE = { accept = false, turnin = false, reward = false, gossip = false }
-local SAFE = { accept = true, turnin = true, reward = false, gossip = true }   -- rewards stay your choice
+local NONE = { accept = false, turnin = false, gossip = false }
+local SAFE = { accept = true, turnin = true, gossip = true }   -- rewards stay your choice
 
 local PRESETS = {
   { key = "simple", name = "Simple", tag = "Just your quests",
@@ -43,7 +43,6 @@ Welcome.PRESETS = PRESETS
 local AUTO_ROWS = {
   { "accept", "Accept quests", "Not grey ones or ones you hid; hold Shift to pause any of these" },
   { "turnin", "Turn in quests", "Takes the reward when there's only one" },
-  { "reward", "Choose rewards", "With a choice, takes the one worth the most at a vendor" },
   { "gossip", "Skip gossip", "Goes straight to the quest at NPCs with quests for you" },
 }
 Welcome.AUTO_ROWS = AUTO_ROWS
@@ -53,7 +52,7 @@ local function presetByKey(key)
   for _, p in ipairs(PRESETS) do if p.key == key then return p end end
 end
 
----Applies a preset and automation switches (auto: { accept, turnin, reward, gossip }).
+---Applies a preset and automation switches (auto: { accept, turnin, gossip }).
 function Welcome.Apply(key, auto)
   local p = presetByKey(key) or PRESETS[2]
   auto = auto or p.auto

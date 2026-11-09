@@ -69,8 +69,9 @@ CV:OnReady(function()
     function() return CV.db.auto.accept end, function(on) CV.db.auto.accept = on end)
   list:Toggle("Turn in quests", "Hands in finished quests and takes the reward when there's only one. Never when the turn-in costs money.",
     function() return CV.db.auto.turnin end, function(on) CV.db.auto.turnin = on end)
-  list:Toggle("Choose rewards", "With a choice of rewards (and turn-in on), takes the one worth the most at a vendor.",
-    function() return CV.db.auto.reward end, function(on) CV.db.auto.reward = on end)
+  list:Toggle("Mark the best-selling reward", "With a choice of rewards, a gold coin marks the one worth the most at a vendor. "
+    .. "The choice is always yours.",
+    function() return CV.db.rewardMark end, function(on) CV.db.rewardMark = on CV.Rewards:Mark() end)
   list:Toggle("Skip gossip", "At an NPC with quests for you, goes straight to the quest (only what the switches above allow).",
     function() return CV.db.auto.gossip end, function(on) CV.db.auto.gossip = on end)
 
