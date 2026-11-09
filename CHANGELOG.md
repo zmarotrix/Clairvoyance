@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.11.0, 2026-11-08
+
+- **Two quest marks in your bags, and none over the game's own.** A gold "?", the game's turn-in mark, is on items a quest
+  in your log needs. A silver diamond is on items a quest you could pick up needs, so you know not to sell them. Items
+  that start a quest keep only the game's "!", which our old "!" used to cover. Quest items with no quest we know of
+  keep only the game's gold border. The marks show in Dimension's bag window too.
+
 ## 0.10.3, 2026-11-08
 
 - **Low-level "!" markers are hidden again.** 0.10.2 rated quests you haven't taken by the game's rating, but the

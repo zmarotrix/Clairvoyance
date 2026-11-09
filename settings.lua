@@ -107,7 +107,7 @@ CV:OnReady(function()
     function(on) CV.db.questMarksOnMinimap = on CV.Pins:Rebuild() CV.Pins:RebuildAvailable() end)
 
   list:Header("Bags")
-  list:Toggle("Mark quest items", "A small \"!\" on items a quest in your log needs, items that start a quest, and quest items.",
+  list:Toggle("Mark quest items", "A gold \"?\" on items a quest in your log needs, and a silver diamond on items a quest you could take needs. Items that start a quest keep the game's own \"!\".",
     function() return CV.db.bagMarks end,
     function(on) CV.db.bagMarks = on CV.BagMarks:Reset() end)
 

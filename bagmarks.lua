@@ -1,11 +1,15 @@
--- A small mark on bag slots holding an item that's part of a quest: one a quest in your log needs,
--- one that starts a quest you haven't done, or one the game itself calls a quest item. A needed item
--- stays marked after you have enough, because you still need it to turn the quest in.
+-- A small mark on bag slots holding an item that's part of a quest, in the bottom-left corner: the stack
+-- count has the bottom right, and Dimension's marks the top. Two kinds, so you can tell them apart at a
+-- glance (Maro, 2026-11-08):
+--   a gold "?", the game's own turn-in mark: a quest in your log needs it. It stays after you have enough,
+--     because you still need it to turn the quest in.
+--   a silver diamond: a quest you could pick up needs it, or it starts one the game hasn't marked.
+-- An item that starts a quest already gets the game's own "!" over its whole icon, and quest items get the
+-- game's gold border, so neither gets a mark of ours on top: that hid the game's "!" and said the same thing.
 --
 -- Marks are separate frames that take no mouse, kept in a table of our own, so nothing is written
--- onto Blizzard's buttons and clicks reach them as before. They sit in the bottom-left corner: the
--- stack count has the bottom right, and Dimension's marks the top. Any other bag window built from
--- the game's buttons gets them by sending NORGANNON_BAG_BUTTON_UPDATED (button).
+-- onto Blizzard's buttons and clicks reach them as before. Any other bag window built from the game's
+-- buttons gets them by sending NORGANNON_BAG_BUTTON_UPDATED (button).
 
 local Core = NorgannonCore
 local CV = Clairvoyance
@@ -14,11 +18,13 @@ local BagMarks = {}
 CV.BagMarks = BagMarks
 
 local MARK_SIZE = 16
+local DIAMOND_SIZE = 12
+local SILVER = { .82, .87, .95 }
 
 local marks = setmetatable({}, { __mode = "k" })   -- item button -> its mark
 BagMarks.marks = marks
 local hooked = {}
-local wanted = {}                                  -- item -> is it part of a quest, until the log changes
+local known = {}                                   -- item -> "have", "can" or false, until the log changes
 
 local function containerFrames()
   local out = {}
@@ -31,28 +37,46 @@ local function containerFrames()
   return out
 end
 
-local function partOfQuest(itemId)
-  if Core.Bags and Core.Bags.Kind(itemId) == "quest" then return true end
+---Could you take this quest? Being too low a level still counts: the item will be wanted soon.
+local function couldTake(questId)
+  local ok, why = CV.Availability.Check(questId, NorgannonDB:Get("quests", questId))
+  return ok or why == "level too low"
+end
+
+---"have" if a quest in your log needs the item, "can" if one you could take does, or false.
+local function questStateOf(itemId)
   local info = Core.DB:ItemInfo(itemId)
   if not info then return false end
-  if info.startQuest and not Core.Player:IsCompleted(info.startQuest) then return true end
+  local P = Core.Player
   for _, questId in ipairs(info.objective) do
-    if Core.Player:HasQuest(questId) then return true end
+    if P:HasQuest(questId) then return "have" end
   end
+  for _, questId in ipairs(info.objective) do
+    if couldTake(questId) then return "can" end
+  end
+  local start = info.startQuest
+  if start and not P:HasQuest(start) and couldTake(start) then return "can" end
   return false
 end
 
----Whether a slot holds an item that's part of a quest. Also asks the game, which knows items that
----aren't in NorgannonDB yet.
-function BagMarks.IsQuestSlot(bag, slot)
+---What a slot's mark is: "have", "can" or nil. The game's own word on the slot comes first: it knows
+---items that aren't in NorgannonDB yet, and it marks quest starters itself.
+function BagMarks.QuestState(bag, slot)
   local ok, itemId = pcall(C_Container.GetContainerItemID, bag, slot)
-  if not ok or not itemId or Core.IsSecret(itemId) then return false end
-  if wanted[itemId] == nil then wanted[itemId] = partOfQuest(itemId) end
-  if wanted[itemId] then return true end
-  if not C_Container.GetContainerItemQuestInfo then return false end
-  local okInfo, quest = pcall(C_Container.GetContainerItemQuestInfo, bag, slot)
-  return okInfo and type(quest) == "table" and not Core.IsSecret(quest.isQuestItem) and quest.isQuestItem == true
+  if not ok or not itemId or Core.IsSecret(itemId) then return nil end
+  if C_Container.GetContainerItemQuestInfo then
+    local okInfo, quest = pcall(C_Container.GetContainerItemQuestInfo, bag, slot)
+    if okInfo and type(quest) == "table" and not Core.IsSecret(quest.questID) and quest.questID then
+      if not Core.IsSecret(quest.isActive) and quest.isActive then return "have" end
+      return nil              -- the game's "!" is on it
+    end
+  end
+  if known[itemId] == nil then known[itemId] = questStateOf(itemId) end
+  return known[itemId] or nil
 end
+
+---Whether a slot gets a mark at all.
+function BagMarks.IsQuestSlot(bag, slot) return BagMarks.QuestState(bag, slot) ~= nil end
 
 local function markFor(button)
   local m = marks[button]
@@ -62,10 +86,15 @@ local function markFor(button)
   m:SetPoint("BOTTOMLEFT", 1, 1)
   m:EnableMouse(false)
   m:SetFrameLevel((button:GetFrameLevel() or 1) + 3)
-  -- the game's own quest "!", as on the minimap
-  m.icon = m:CreateTexture(nil, "OVERLAY")
-  m.icon:SetAllPoints()
-  Core.Map.SetIcon(m.icon, "exclaim")
+  m.have = m:CreateTexture(nil, "OVERLAY")
+  m.have:SetAllPoints()
+  Core.Map.SetIcon(m.have, "question")
+  -- a dark diamond a little larger behind the silver one, so it reads on any icon
+  m.shadow = Core.UI.Icon(m, "pinDiamond", DIAMOND_SIZE + 3, { 0, 0, 0, .85 }, "OVERLAY")
+  m.shadow:SetPoint("CENTER")
+  m.can = Core.UI.Icon(m, "pinDiamond", DIAMOND_SIZE, SILVER, "OVERLAY")
+  m.can:SetDrawLayer("OVERLAY", 1)
+  m.can:SetPoint("CENTER")
   marks[button] = m
   return m
 end
@@ -74,10 +103,16 @@ local function refreshButton(button)
   local okBag, bag = pcall(button.GetBagID, button)
   local okSlot, slot = pcall(button.GetID, button)
   if not (okBag and okSlot and bag and slot) or Core.IsSecret(bag) then return end
-  local show = CV.db.bagMarks and BagMarks.IsQuestSlot(bag, slot)
-  if show then
-    markFor(button):Show()
+  local state = CV.db.bagMarks and BagMarks.QuestState(bag, slot)
+  if state then
+    local m = markFor(button)
+    m.have:SetShown(state == "have")
+    m.can:SetShown(state == "can")
+    m.shadow:SetShown(state == "can")
+    m.state = state
+    m:Show()
   elseif marks[button] then
+    marks[button].state = nil
     marks[button]:Hide()
   end
 end
@@ -109,16 +144,17 @@ end
 
 ---After the setting changes, and after the quest log does: what counts as part of a quest changes too.
 function BagMarks:Reset()
-  wipe(wanted)
+  wipe(known)
   refreshSoon()
 end
 
 CV:OnReady(function() BagMarks:Refresh() end)
 Core:On("BAG_UPDATE_DELAYED", "clairvoyance.bagmarks", refreshSoon)
--- only quests joining or leaving the log change which items count (not progress on them)
+-- quests joining or leaving the log change which items count (not progress on them), and so does a new level
 Core:Listen("NORGANNON_QUESTLOG_UPDATED", "clairvoyance.bagmarks", function(_, changes)
   if CV.Availability and CV.Availability.LogChangeMatters(changes) then BagMarks:Reset() end
 end)
+Core:On("PLAYER_LEVEL_UP", "clairvoyance.bagmarks.level", function() BagMarks:Reset() end)
 Core:Listen("NORGANNON_BAG_BUTTON_UPDATED", "clairvoyance.bagmarks", function(_, button)
   if CV.ready then refreshButton(button) end
 end)
