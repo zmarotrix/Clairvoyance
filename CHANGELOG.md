@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.11.2, 2026-11-08
+
+- **Quest-givers correct the "!" markers.** Many quests new to WoW Forever have no prerequisites in the data, so a
+  later step of a chain could show as available too early (the second "A Friend of the Family" on Bolvar). When you
+  talk to a quest-giver, the game lists what it will really give you. A quest Clairvoyance expected there but the game
+  left out loses its "!" for this character. It comes back when the quest-giver lists it, when you level up, or when you
+  turn in a quest from the same zone or to that quest-giver. Grey quests are never judged, since the game leaves those
+  off its list while low-level quests are hidden. `/clair why` says "not offered by its quest-giver".
+
 ## 0.11.1, 2026-11-08
 
 - **Hide an item's quest mark** with a key: set one in Key Bindings, under AddOns, Clairvoyance, then press it over the

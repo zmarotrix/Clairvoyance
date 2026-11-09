@@ -4,7 +4,8 @@
 --   hidden in NorgannonDB · already done · in the log · level window · race · class · seasonal
 --   prerequisites (all of / any one of) · exclusive alternatives · breadcrumb already followed
 --   available only while/after another quest · until another is done · not while another is
---   in the log · profession skill · reputation window · a spell the player must (not) know
+--   in the log · profession skill · reputation window · a spell the player must (not) know ·
+--   the quest-giver didn't list it last time you spoke (offers.lua: prerequisites the data lacks)
 --
 -- Evaluated per zone (the player's and the one the world map shows), cached, and recalculated
 -- only when something relevant changes. CLAIRVOYANCE_AVAILABLE_UPDATED (area) announces it.
@@ -83,8 +84,9 @@ function Availability.LogQuestColor(questId, level)
 end
 
 ---Can the player take this quest now? Returns true, or false and a reason. q is the decoded
----NorgannonDB record (tests pass their own).
-function Availability.Check(id, q)
+---NorgannonDB record (tests pass their own). ignoreOffers leaves out what quest-givers taught
+---(offers.lua), which asks the rules alone.
+function Availability.Check(id, q, ignoreOffers)
   local P = Core.Player
   if not q then return false, "unknown" end
   if q.hidden == true or Core.DB:IsQuestHidden(id) then return false, "hidden" end
@@ -140,6 +142,8 @@ function Availability.Check(id, q)
     local known = spellKnown(math.abs(spell))
     if known ~= nil and ((spell > 0 and not known) or (spell < 0 and known)) then return false, "spell" end
   end
+  -- the rules say yes, but the game didn't list it at its quest-giver (a prerequisite the data lacks)
+  if not ignoreOffers and CV.Offers and CV.Offers.Held(id) then return false, "not offered by its quest-giver" end
   return true
 end
 

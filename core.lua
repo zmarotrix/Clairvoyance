@@ -66,7 +66,7 @@ end
 -- things, hidden quests, the tracker's position, length and collapsed quests.
 --
 --   ClairvoyanceDB      = { global = settings | nil, globalFrom = "Name", legacy = 0.1 account settings }
---   ClairvoyanceCharDB  = { settings, useGlobal, welcomed, hidden, hiddenOnMap, tracked, tracker = layout }
+--   ClairvoyanceCharDB  = { settings, useGlobal, welcomed, hidden, hiddenOnMap, notOffered, tracked, tracker = layout }
 --
 -- CV.db is the settings in use; CV.char the character's data. CV.char.tracker reads and writes
 -- the look-of-the-tracker keys (TRACKER_SETTINGS) in CV.db.tracker, the rest in the character's.
@@ -91,6 +91,7 @@ local DEFAULTS = {
   char = {
     hidden = {},          -- questId -> true: hidden from the tracker
     hiddenOnMap = {},     -- questId -> true: markers hidden on the map (shift-click)
+    notOffered = {},      -- questId -> quest-giver id: the game didn't offer it there (offers.lua)
     tracked = {},         -- track anything: { key, kind, ids | category, name }, in the order added
     tracker = { collapsed = false, collapsedZones = {}, questView = {} },   -- position, height when set
     -- useGlobal: this character uses the global settings; welcomed: the welcome was answered
