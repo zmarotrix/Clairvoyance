@@ -8,7 +8,7 @@ local DB = NorgannonDB
 
 if not (Core and Core.NewAddon) then
   Clairvoyance = { disabled = true }
-  print("Clairvoyance needs NorgannonDB Core 1.22 or newer; it is turned off.")
+  print("Clairvoyance needs Norgannon Core 1.22 or newer; it is turned off.")
   return
 end
 
