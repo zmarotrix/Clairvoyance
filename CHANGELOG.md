@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.14.1, 2026-11-09
+
+- **Quest item buttons show without a reload.** A quest's usable item often reaches your bags a moment after you take
+  the quest, and the quest log doesn't report that as a change, so the tracker never looked again. It now checks
+  when your bags change and when the game finishes loading an item's details. The backup check (the item the quest
+  gives you) also works on WoW Forever now: it used a function the client no longer has.
+
 ## 0.14.0, 2026-11-09
 
 - **A ring per objective** (setting under Map, off by default). A quest's dots keep its colour, and each of its

@@ -117,10 +117,12 @@ local function specialItem(entry, quest)
       if id then return id end
     end
   end
+  -- the item the quest gives you, when it has a use (the 1.15+ clients only have C_Item.GetItemSpell)
   local source = quest and quest.sourceItem
-  if source and GetItemSpell then
-    local ok, spell = pcall(GetItemSpell, source)
-    if ok and spell then return source end
+  local itemSpell = (C_Item and C_Item.GetItemSpell) or rawget(_G, "GetItemSpell")
+  if source and itemSpell then
+    local ok, spell = pcall(itemSpell, source)
+    if ok and spell and not Core.IsSecret(spell) then return source end
   end
 end
 
@@ -225,6 +227,25 @@ Core:Listen("NORGANNON_QUESTLOG_UPDATED", "clairvoyance.model", function(_, chan
     end
   end
 end)
+
+-- A quest's usable item often reaches your bags a moment after the quest (or is looted later),
+-- and the quest log doesn't report that as a change: check the items when bags change and when
+-- the item cache fills (C_Item.GetItemSpell knows nothing of an uncached item).
+function Model:CheckItems()
+  for id, m in pairs(self.quests) do
+    local entry = Core.Player:GetQuest(id)
+    local item = entry and specialItem(entry, DB:Get("quests", id))
+    if entry and item ~= m.item then
+      m.item = item
+      CV:Send("MODEL_UPDATED", id)
+    end
+  end
+end
+local function checkItemsSoon()
+  if CV.ready then Core:NextFrame(function() Model:CheckItems() end, "clairvoyance.model.items") end
+end
+Core:On("BAG_UPDATE_DELAYED", "clairvoyance.model", checkItemsSoon)
+Core:On("GET_ITEM_INFO_RECEIVED", "clairvoyance.model", checkItemsSoon)
 
 Core:Listen("NORGANNON_PARTY_UPDATED", "clairvoyance.model", function(_, questId)
   local m = Model.quests[questId]
