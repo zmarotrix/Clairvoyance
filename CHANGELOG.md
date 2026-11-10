@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.14.3 (2026-11-09)
+
+- Asks for Norgannon Core 1.22 or newer, the first Core with everything it needs; the map features from Core 1.28 switch on by themselves when Core has them. An older Core now gets a clear "update Norgannon Core" message instead of errors.
+
 ## 0.14.2, 2026-11-09
 
 - **Fixed the world map and quest log failing to open** ("NorgannonDB_Core tried to call the protected function

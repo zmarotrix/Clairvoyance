@@ -8,7 +8,7 @@ local DB = NorgannonDB
 
 if not (Core and Core.NewAddon) then
   Clairvoyance = { disabled = true }
-  print("Clairvoyance needs NorgannonDB Core 1.20 or newer; it is turned off.")
+  print("Clairvoyance needs NorgannonDB Core 1.22 or newer; it is turned off.")
   return
 end
 
@@ -20,7 +20,7 @@ local CV = Clairvoyance
 -- player is in the world. A click shows or hides the tracker, Shift-click opens Track anything, right-click settings;
 -- /clair alone opens settings, as it always has. Messages inside it are CLAIRVOYANCE_* (CV:Send, CV:Listen).
 Core:NewAddon("clairvoyance", {
-  folder = ADDON, api = { 1, 20 }, data = { 1, 2 }, ownLoad = true,
+  folder = ADDON, api = { 1, 22 }, data = { 1, 2 }, ownLoad = true,
   slash = { "/clair", "/clairvoyance", "/cv" },
   commands = {
     [""] = function() CV:OpenSettings() end,
