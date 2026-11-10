@@ -222,7 +222,7 @@ function Extras:TrackedMenu(owner, key)
       local near = nearest()
       local uiMap = near and Core.Map.AreaToUiMap(near.pin.area)
       if not uiMap then CV:Print("None of these on this continent.") return end
-      CV:OpenMap(uiMap, function() Core.Map:Pulse("track:" .. key) end)
+      CV:ShowOnMap(near.pin.area, "track:" .. key)
     end },
     "-",
     { text = "New colour", func = function() Core.Colors:Randomize(colorKey(key)) end },

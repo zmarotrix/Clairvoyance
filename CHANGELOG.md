@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.14.2, 2026-11-09
+
+- **Fixed the world map and quest log failing to open** ("NorgannonDB_Core tried to call the protected function
+  Button:SetPassThroughButtons()"). 0.12.2 still opened Blizzard's map itself, through the client's own function, and
+  that taints the map's quest pins for the rest of the session just the same. "Show on map" now never opens or switches
+  the map. If the map is open on the right zone, the dots pulse right away. Otherwise Clairvoyance says which zone to
+  open ("Open your map (M): it's in Durotar."), and the dots pulse when you open the map there.
+- Changing the quest log settings no longer redraws Blizzard's quest log from Clairvoyance's code. The titles update
+  right away, and anything left updates the next time the log redraws.
+
 ## 0.14.1, 2026-11-09
 
 - **Quest item buttons show without a reload.** A quest's usable item often reaches your bags a moment after you take

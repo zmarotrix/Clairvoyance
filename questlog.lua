@@ -133,9 +133,9 @@ end)
 
 CV:Listen("SETTINGS_CHANGED", "questlog", function() QL:Refresh() end)
 
----Redraws the log after a setting changes.
+---Redecorates the log after a setting changes. It never calls the log's own update from here:
+---that would run Blizzard's quest log and map in add-on code and taint them.
 function QL:Refresh()
-  if G("QuestLog_Update") and G("QuestLogFrame") and G("QuestLogFrame"):IsShown() then G("QuestLog_Update")()
-  elseif G("QuestLogQuests_Update") and G("QuestMapFrame") and G("QuestMapFrame"):IsShown() then G("QuestLogQuests_Update")() end
+  self:Update()
   self:UpdateBar()
 end

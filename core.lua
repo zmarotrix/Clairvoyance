@@ -62,31 +62,20 @@ Core:NewAddon("clairvoyance", {
 if CV.disabled then return end
 
 ---The main action (left-click): show or hide the quest tracker.
--- Opening Blizzard's map from add-on code (OpenWorldMap, SetMapID, QuestMapFrame_OpenToQuestDetails)
--- makes the map build its own quest pins in tainted code. In combat the game blocks them
--- ("Clairvoyance tried to call the protected function Button:SetPassThroughButtons()"), and pins
--- made that way stay tainted, so toggling the map can keep failing in combat until /reload.
--- C_Map.OpenWorldMap is the client's own way to open the map; in combat it waits until combat ends.
--- Every "Show on map" in Clairvoyance goes through here.
-function CV:OpenMap(uiMap, after)
-  local function open()
-    local cmap = rawget(_G, "C_Map")
-    if cmap and cmap.OpenWorldMap then
-      cmap.OpenWorldMap(uiMap)
-    elseif OpenWorldMap then
-      OpenWorldMap(uiMap)
-    else
-      return
-    end
-    if after then after() end
+-- "Show on map" never opens or switches Blizzard's map: doing that from add-on code (OpenWorldMap,
+-- C_Map.OpenWorldMap, SetMapID, QuestMapFrame_OpenToQuestDetails) makes the map build its own quest
+-- pins inside add-on code, the pin pool stays tainted for the session, and every later open of
+-- the map or quest log fails ("tried to call the protected function Button:SetPassThroughButtons()").
+-- Core.Map:Reveal pulses the pins now if the map is open on their zone, else when you next open it
+-- there; Clairvoyance says where to look.
+function CV:ShowOnMap(area, key)
+  local reveal = Core.Map.Reveal
+  if not reveal then Core.Map:Pulse(key) return false end
+  local now, zone = reveal(Core.Map, area, key)
+  if not now then
+    CV:Print(zone and ("Open your map (M): it's in " .. zone .. ".") or "Open your map (M) to see it.")
   end
-  if InCombatLockdown() then
-    CV:Print("The map opens when combat ends.")
-    Core:AfterCombat(open, "clairvoyance.openmap")
-    return false
-  end
-  open()
-  return true
+  return now
 end
 
 ---How many of the map's own pins hold values written by add-on code (`/clair maptaint`): 0 means the

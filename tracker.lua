@@ -147,9 +147,8 @@ local function showOnMap(m)
   local near = CV.Pins:Nearest(m.id)
   local uiMap = near and Core.Map.AreaToUiMap(near.pin.area)
   if not uiMap then return end
-  -- selected, so the quest log beside the map opens on it; the dots grow and shrink so the eye finds them
-  if C_QuestLog and C_QuestLog.SetSelectedQuest then C_QuestLog.SetSelectedQuest(m.id) end
-  CV:OpenMap(uiMap, function() Core.Map:Pulse("q" .. m.id) end)
+  -- the dots grow and shrink so the eye finds them (now, or when you open the map there)
+  CV:ShowOnMap(near.pin.area, "q" .. m.id)
 end
 
 Tracker.ShowOnMap = showOnMap
