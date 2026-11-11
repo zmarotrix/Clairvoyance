@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.14.6 (2026-11-10)
+
+- The turn-in ? and the distance on a detailed card sit level with the quest's name, at the same height as on a compact card. The ? sat too high before.
+
 ## 0.14.5 (2026-11-10)
 
 - A quest NorgannonDB doesn't know yet shows the Collector's small mark beside its name in the tracker. Its tooltip says what's missing: with the Collector running it asks you to share what it notes (/ndbc share), and without it, it says what the Collector is.

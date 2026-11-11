@@ -453,7 +453,8 @@ local function fillRow(row, m, valuesOnly)
   -- compact cards centre the distance (and with it the "?" or %) on the card's one line, even
   -- when the distance is off and empty; detailed cards keep it beside the title
   row.dist:ClearAllPoints()
-  if compact then row.dist:SetPoint("RIGHT", row, "RIGHT", -8, 0) else row.dist:SetPoint("TOPRIGHT", -8, -7) end
+  -- detailed: centred on the title's line (the badge's middle), so an empty distance doesn't lift the "?"
+  if compact then row.dist:SetPoint("RIGHT", row, "RIGHT", -8, 0) else row.dist:SetPoint("RIGHT", row, "TOPRIGHT", -8, -14) end
   row.summary:ClearAllPoints()
   row.qicon:ClearAllPoints()
   -- a complete quest's turn-in "?" sits left of the distance in both views (on the card's one
