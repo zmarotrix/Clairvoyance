@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.14.4 (2026-11-10)
+
+- Quests NorgannonDB doesn't know yet, such as The Drowned City's, now group under the zone your quest log shows instead of "Other" in the tracker's Zone order. Needs Norgannon Core 1.28.3.
+
 ## 0.14.3 (2026-11-09)
 
 - Asks for Norgannon Core 1.22 or newer, the first Core with everything it needs; the map features from Core 1.28 switch on by themselves when Core has them. An older Core now gets a clear "update Norgannon Core" message instead of errors.

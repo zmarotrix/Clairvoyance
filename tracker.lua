@@ -546,7 +546,7 @@ local function sorted(list)
     end)
   elseif mode == "zone" then
     table.sort(list, function(a, b)
-      local za, zb = areaName(a.zone) or "~", areaName(b.zone) or "~"
+      local za, zb = areaName(a.zone) or a.header or "~", areaName(b.zone) or b.header or "~"
       if za ~= zb then return za < zb end
       local f = finishedFirst(a, b)            -- within the zone
       if f ~= nil then return f end
@@ -686,7 +686,7 @@ function Tracker:Draw(quests)
   local counts = {}
   if byZone then
     for _, m in ipairs(quests) do
-      local z = areaName(m.zone) or "Other"
+      local z = areaName(m.zone) or m.header or "Other"
       counts[z] = (counts[z] or 0) + 1
     end
   end
@@ -694,7 +694,7 @@ function Tracker:Draw(quests)
   local gap = compact and 2 or 3
   local y, zone, g, used = 0, nil, 0, 0
   for _, m in ipairs(quests) do
-    local z = byZone and (areaName(m.zone) or "Other")
+    local z = byZone and (areaName(m.zone) or m.header or "Other")
     if byZone and z ~= zone then
       zone, g = z, g + 1
       local h = groupHeader(g)
