@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.14.9 (2026-11-10)
+
+- `/clair mapprobe`: a test for opening the map from "Show on map" without breaking it. It shows a button that clicks one of the game's own map buttons for you, then reports whether the map opened and whether its pins stayed clean. Research only for now.
+
 ## 0.14.8 (2026-11-10)
 
 - Pressing "Show on map" again right away no longer repeats "Open your map" in chat. It still waits for you to open the map, then the quest's dots pulse.

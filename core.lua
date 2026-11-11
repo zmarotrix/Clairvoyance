@@ -51,6 +51,7 @@ Core:NewAddon("clairvoyance", {
       CV:Print(string.format("%d of the map's %d pins were touched by add-on code (%s). Toggling the map in combat "
         .. "may fail until you /reload.", bad, pins, table.concat(names, ", ")))
     end, "check whether add-on code has tainted the world map's pins (open the map first)" },
+    mapprobe = { function(rest) CV.MapProbe.Command(rest) end, "[button | hide]: test opening the map with a secure button (research)" },
     perf = { function(rest) CV.Perf.Command(rest) end, "[seconds | stop | report]: measure Clairvoyance while you play" },
   },
   minimap = {
