@@ -281,6 +281,13 @@ local function newRow()
   row.arrow = UI.Icon(row, "arrow", 11, C.muted)
   row.arrow:SetPoint("RIGHT", row.dist, "LEFT", -3, 0)
   row.focus = UI.Icon(row, "pinDiamond", 9, C.gold)
+  -- the Collector's mark, small and faint: NorgannonDB doesn't know this quest's zone yet (the
+  -- tooltip says why and how the Collector helps)
+  row.unknown = row:CreateTexture(nil, "ARTWORK")
+  row.unknown:SetTexture(UI.MarkPath("collector"))
+  row.unknown:SetSize(10, 10)
+  local ca = UI.Accent("collector")
+  row.unknown:SetVertexColor(ca[1], ca[2], ca[3], .7)
   row.turnin = CreateFrame("Frame", nil, row)
   row.turnin:SetHeight(18)
   row.turnin.icon = row.turnin:CreateTexture(nil, "ARTWORK")
@@ -316,6 +323,30 @@ local function newRow()
   return row
 end
 
+---Whether NorgannonDB lacks this quest's zone (Forever's own quests, mostly): the tracker groups
+---it by the log's header then, and marks it.
+function Tracker.Unknown(m) return m.zone == nil end
+
+---The tooltip's lines about a quest NorgannonDB doesn't place: { { text, colour }, ... }, or nil.
+---With the Collector running: share what it notes; without it: what the Collector is.
+function Tracker.UnknownNote(m)
+  if not Tracker.Unknown(m) then return nil end
+  local accent, muted = UI.Accent("collector"), C.muted
+  local lines = { { " ", muted } }
+  lines[#lines + 1] = { m.known and "NorgannonDB doesn't know this quest's zone yet."
+    or "NorgannonDB doesn't know this quest yet, so it can't show you where to go.", accent }
+  local collector = rawget(_G, "NorgannonDBCollector")
+  local settings = type(collector) == "table" and collector.sv and collector.sv.settings
+  if settings and settings.paused then
+    lines[#lines + 1] = { "Your Collector is paused. Type /ndbc pause to turn it back on, and it will note this quest as you play.", muted }
+  elseif collector then
+    lines[#lines + 1] = { "Your Collector is noting it as you play. Type /ndbc share now and then to send it in, and the next update teaches every player.", muted }
+  else
+    lines[#lines + 1] = { "The free Collector add-on notes quests like this while you play. Shared, they reach every player in the next update.", muted }
+  end
+  return lines
+end
+
 function Tracker:ShowTooltip(row, m)
   GameTooltip:SetOwner(row, "ANCHOR_LEFT")
   local c = questColor(m.id)
@@ -331,6 +362,9 @@ function Tracker:ShowTooltip(row, m)
         GameTooltip:AddLine("   " .. player .. ": " .. (p.fulfilled or 0) .. "/" .. (p.required or 1), a[1], a[2], a[3])
       end
     end
+  end
+  for _, line in ipairs(Tracker.UnknownNote(m) or {}) do
+    GameTooltip:AddLine(line[1], line[2][1], line[2][2], line[2][3], true)
   end
   local fa = C.faint
   GameTooltip:AddLine("Click: expand or compact · Ctrl-click: point the arrow · Right-click: actions", fa[1], fa[2], fa[3])
@@ -408,6 +442,9 @@ local function fillRow(row, m, valuesOnly)
   row.focus:ClearAllPoints()
   row.focus:SetPoint("LEFT", row.title, "RIGHT", 5, 0)
   row.focus:SetShown(CV.focus == m.id)
+  row.unknown:ClearAllPoints()
+  row.unknown:SetPoint("LEFT", row.focus:IsShown() and row.focus or row.title, "RIGHT", 4, 0)
+  row.unknown:SetShown(Tracker.Unknown(m))
 
   local y = -28
   for i = 1, #row.lines do row.lines[i]:Hide() end
@@ -419,16 +456,21 @@ local function fillRow(row, m, valuesOnly)
   if compact then row.dist:SetPoint("RIGHT", row, "RIGHT", -8, 0) else row.dist:SetPoint("TOPRIGHT", -8, -7) end
   row.summary:ClearAllPoints()
   row.qicon:ClearAllPoints()
+  -- a complete quest's turn-in "?" sits left of the distance in both views (on the card's one
+  -- line when compact, beside the title when detailed)
+  local anchor = row.arrow:IsShown() and row.arrow or row.dist
+  if m.complete == true then
+    Core.Map.SetIcon(row.qicon, "question")
+    row.qicon:SetPoint("RIGHT", anchor, "LEFT", anchor == row.dist and row.dist:GetText() == "" and 2 or -4, 0)
+    row.qicon:Show()
+  else
+    row.qicon:Hide()
+  end
   if compact then
     -- one line: the summary (or the turn-in "?") sits left of the distance
-    local anchor = row.arrow:IsShown() and row.arrow or row.dist
     if m.complete == true then
-      Core.Map.SetIcon(row.qicon, "question")
-      row.qicon:SetPoint("RIGHT", anchor, "LEFT", anchor == row.dist and row.dist:GetText() == "" and 2 or -4, 0)
-      row.qicon:Show()
       row.summary:Hide()
     else
-      row.qicon:Hide()
       row.summary:SetPoint("RIGHT", anchor, "LEFT", -6, 0)
       row.summary:Show()
     end
@@ -436,7 +478,6 @@ local function fillRow(row, m, valuesOnly)
     return 28
   end
   row.summary:Hide()
-  row.qicon:Hide()
   if m.complete == true then
     local name, where = turninWhere(m)
     Core.Map.SetIcon(row.turnin.icon, "question")

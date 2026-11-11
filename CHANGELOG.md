@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.14.5 (2026-11-10)
+
+- A quest NorgannonDB doesn't know yet shows the Collector's small mark beside its name in the tracker. Its tooltip says what's missing: with the Collector running it asks you to share what it notes (/ndbc share), and without it, it says what the Collector is.
+- A complete quest's turn-in ? now shows beside its name in the detailed view too, as it does in the compact view. The "Turn in" line stays below it.
+
 ## 0.14.4 (2026-11-10)
 
 - Quests NorgannonDB doesn't know yet, such as The Drowned City's, now group under the zone your quest log shows instead of "Other" in the tracker's Zone order. Needs Norgannon Core 1.28.3.
