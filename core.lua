@@ -68,12 +68,19 @@ if CV.disabled then return end
 -- the map or quest log fails ("tried to call the protected function Button:SetPassThroughButtons()").
 -- Core.Map:Reveal pulses the pins now if the map is open on their zone, else when you next open it
 -- there; Clairvoyance says where to look.
+-- A second press soon after (the map didn't open, so it looks like nothing happened) re-arms the
+-- pulse but doesn't repeat the same line.
+local HINT_QUIET = 8
+local lastHint, lastHintAt
 function CV:ShowOnMap(area, key)
   local reveal = Core.Map.Reveal
   if not reveal then Core.Map:Pulse(key) return false end
   local now, zone = reveal(Core.Map, area, key)
   if not now then
-    CV:Print(zone and ("Open your map (M): it's in " .. zone .. ".") or "Open your map (M) to see it.")
+    local hint = zone and ("Open your map (M): it's in " .. zone .. ".") or "Open your map (M) to see it."
+    local t = GetTime()
+    if hint ~= lastHint or not lastHintAt or t - lastHintAt > HINT_QUIET then CV:Print(hint) end
+    lastHint, lastHintAt = hint, t
   end
   return now
 end

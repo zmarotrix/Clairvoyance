@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.14.8 (2026-11-10)
+
+- Pressing "Show on map" again right away no longer repeats "Open your map" in chat. It still waits for you to open the map, then the quest's dots pulse.
+
 ## 0.14.7 (2026-11-10)
 
 - A creature or object's tooltip no longer lists your quest twice. When the game's own tooltip already shows the quest and your progress, Clairvoyance leaves it to the game and adds only what the game doesn't show.
