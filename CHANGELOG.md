@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.14.12 (2026-11-11)
+
+- `/clair maptaint` no longer counts OpenMap's combat fix as damage. OpenMap puts its own mouse setup on every map pin on purpose, so the map doesn't error in combat. Those pins are now reported apart, and only other changes count as tainted.
+
 ## 0.14.11 (2026-11-10)
 
 - `/clair maptaint` works on this client: it reads the map's pins from its pin pools, as this map has no single pin list.

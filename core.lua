@@ -45,9 +45,10 @@ Core:NewAddon("clairvoyance", {
         byLevel or "nothing"))
     end, "<questId>: is a quest available, and if not, why" },
     maptaint = { function()
-      local bad, pins, names = CV.MapTaint()
+      local bad, pins, names, fixed = CV.MapTaint()
       if not bad then return CV:Print("Can't check the map: " .. tostring(pins) .. ".") end
-      if bad == 0 then return CV:Print(string.format("The map is clean (%d pins checked).", pins)) end
+      local note = (fixed or 0) > 0 and string.format(" OpenMap's combat fix is on %d of them, which is fine.", fixed) or ""
+      if bad == 0 then return CV:Print(string.format("The map is clean (%d pins checked).%s", pins, note)) end
       CV:Print(string.format("%d of the map's %d pins were touched by add-on code (%s). Toggling the map in combat "
         .. "may fail until you /reload.", bad, pins, table.concat(names, ", ")))
     end, "check whether add-on code has tainted the world map's pins (open the map first)" },
@@ -88,6 +89,7 @@ end
 
 ---How many of the map's own pins hold values written by add-on code (`/clair maptaint`): 0 means the
 ---map is clean. With some, toggling the map in combat can fail until /reload.
+local OPENMAP_FIX = { CheckMouseButtonPassthrough = true, UpdateMousePropagation = true }
 function CV.MapTaint()
   local frame = rawget(_G, "WorldMapFrame")
   local issecurevariable = rawget(_G, "issecurevariable")
@@ -106,20 +108,27 @@ function CV.MapTaint()
   else
     return nil, "this map has no pin list to check"
   end
-  local pins, bad, by = 0, 0, {}
+  -- OpenMap points every pin's mouse setup at its own on purpose, so in combat it waits instead of
+  -- being blocked: those two keys are its fix, counted apart, not taint
+  local pins, bad, by, fixed = 0, 0, {}, 0
   for _, pin in ipairs(all) do
     pins = pins + 1
+    local touched, openMapFix
     for k in pairs(pin) do
       if type(k) == "string" then
         local secure, taint = issecurevariable(pin, k)
-        if not secure then bad = bad + 1 by[taint or "?"] = true break end
+        if not secure then
+          if taint == "OpenMap" and OPENMAP_FIX[k] then openMapFix = true
+          else touched = taint or "?" break end
+        end
       end
     end
+    if touched then bad = bad + 1 by[touched] = true elseif openMapFix then fixed = fixed + 1 end
   end
   local names = {}
   for name in pairs(by) do names[#names + 1] = name end
   table.sort(names)
-  return bad, pins, names
+  return bad, pins, names, fixed
 end
 
 function CV:Toggle()

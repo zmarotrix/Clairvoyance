@@ -61,11 +61,11 @@ local button
 local function report()
   local shown = WorldMapFrame and WorldMapFrame:IsShown()
   local mapID = shown and WorldMapFrame:GetMapID()
-  local bad, pins = CV.MapTaint()   -- pins is the reason when bad is nil
+  local bad, pins, names = CV.MapTaint()   -- pins is the reason when bad is nil
   CV:Print(string.format("probe: clicked %s. Map open: %s (map %s). Pins: %s.", tostring(button:GetAttribute("clickbutton-name")),
     tostring(shown), tostring(mapID),
     bad == nil and ("can't check, " .. tostring(pins)) or bad == 0 and string.format("clean (%d checked)", pins)
-      or string.format("%d of %d tainted", bad, pins)))
+      or string.format("%d of %d tainted (%s)", bad, pins, table.concat(names, ", "))))
   if shown then CV:Print("probe: now close the map with M, open it again, and type /clair maptaint to be sure.") end
 end
 
