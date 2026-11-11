@@ -46,7 +46,7 @@ Core:NewAddon("clairvoyance", {
     end, "<questId>: is a quest available, and if not, why" },
     maptaint = { function()
       local bad, pins, names = CV.MapTaint()
-      if not bad then return CV:Print("Can't check the map on this client.") end
+      if not bad then return CV:Print("Can't check the map: " .. tostring(pins) .. ".") end
       if bad == 0 then return CV:Print(string.format("The map is clean (%d pins checked).", pins)) end
       CV:Print(string.format("%d of the map's %d pins were touched by add-on code (%s). Toggling the map in combat "
         .. "may fail until you /reload.", bad, pins, table.concat(names, ", ")))
@@ -90,7 +90,10 @@ end
 ---map is clean. With some, toggling the map in combat can fail until /reload.
 function CV.MapTaint()
   local frame = rawget(_G, "WorldMapFrame")
-  if not (frame and frame.EnumerateAllPins and issecurevariable) then return nil end
+  local issecurevariable = rawget(_G, "issecurevariable")
+  if not frame then return nil, "the map isn't loaded yet: open it once (M), then try again" end
+  if not frame.EnumerateAllPins then return nil, "this map has no pin list to check" end
+  if not issecurevariable then return nil, "this client has no issecurevariable, so add-ons can't check" end
   local pins, bad, by = 0, 0, {}
   for pin in frame:EnumerateAllPins() do
     pins = pins + 1
