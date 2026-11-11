@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.14.11 (2026-11-10)
+
+- `/clair maptaint` works on this client: it reads the map's pins from its pin pools, as this map has no single pin list.
+
 ## 0.14.10 (2026-11-10)
 
 - `/clair maptaint` says why when it can't check the map (the map not loaded yet, say) instead of only "Can't check the map on this client."

@@ -92,10 +92,22 @@ function CV.MapTaint()
   local frame = rawget(_G, "WorldMapFrame")
   local issecurevariable = rawget(_G, "issecurevariable")
   if not frame then return nil, "the map isn't loaded yet: open it once (M), then try again" end
-  if not frame.EnumerateAllPins then return nil, "this map has no pin list to check" end
   if not issecurevariable then return nil, "this client has no issecurevariable, so add-ons can't check" end
+  -- every pin the map holds: EnumerateAllPins where the map has it, else its pin pools (Forever)
+  local all = {}
+  if frame.EnumerateAllPins then
+    for pin in frame:EnumerateAllPins() do all[#all + 1] = pin end
+  elseif type(frame.pinPools) == "table" then
+    for _, pool in pairs(frame.pinPools) do
+      if type(pool) == "table" and pool.EnumerateActive then
+        for pin in pool:EnumerateActive() do all[#all + 1] = pin end
+      end
+    end
+  else
+    return nil, "this map has no pin list to check"
+  end
   local pins, bad, by = 0, 0, {}
-  for pin in frame:EnumerateAllPins() do
+  for _, pin in ipairs(all) do
     pins = pins + 1
     for k in pairs(pin) do
       if type(k) == "string" then
