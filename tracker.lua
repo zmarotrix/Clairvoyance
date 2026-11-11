@@ -37,6 +37,7 @@ local ITEM_SIZE, ITEM_GAP = 28, 4 -- a quest item's button, and its distance fro
 local f, rows, hiddenLine
 local order, pendingOrder, pendingSince = {}, nil, nil
 local layoutPending = false
+local titleLinks = {}   -- the links over the quest names (see Tracker.PlaceTitleLinks)
 
 -------------------------------------------------------------------------------------------
 -- Helpers
@@ -367,7 +368,8 @@ function Tracker:ShowTooltip(row, m)
     GameTooltip:AddLine(line[1], line[2][1], line[2][2], line[2][3], true)
   end
   local fa = C.faint
-  GameTooltip:AddLine("Click: expand or compact · Ctrl-click: point the arrow · Right-click: actions", fa[1], fa[2], fa[3])
+  GameTooltip:AddLine("Click the name: open the map · Click the card: expand or compact", fa[1], fa[2], fa[3])
+  GameTooltip:AddLine("Ctrl-click: point the arrow · Right-click: actions", fa[1], fa[2], fa[3])
   GameTooltip:Show()
 end
 
@@ -781,6 +783,7 @@ function Tracker:Draw(quests)
   f.grip:SetShown(not collapsed)
   placeItemButtons()
   Tracker.PlaceMapButton()
+  Tracker.PlaceTitleLinks()
 end
 
 ---How tall the list may get before it scrolls: the length you dragged, else a share of the screen.
@@ -887,6 +890,7 @@ local function build()
   head:SetScript("OnDragStart", function()
     if InCombatLockdown() then return end
     if Tracker.MapButton then Tracker.MapButton:Hide() end   -- back over its slot when you let go
+    for _, b in pairs(titleLinks) do b:Hide() end
     f:StartMoving()
   end)
   head:SetScript("OnDragStop", function() f:StopMovingOrSizing() savePosition() Tracker:Layout() end)
@@ -979,7 +983,7 @@ local function build()
   f.scroll:SetWidth(WIDTH)
   f.content = f.scroll.content
   f.content:SetWidth(WIDTH)
-  f.scroll:HookScript("OnMouseWheel", function() if not InCombatLockdown() then placeItemButtons() end end)
+  f.scroll:HookScript("OnMouseWheel", function() if not InCombatLockdown() then placeItemButtons() Tracker.PlaceTitleLinks() end end)
 
   -- the bottom edge: drag to set the tracker's length (the list scrolls beyond it); right-click
   -- goes back to automatic. Only the length changes; the size slider in settings scales it all.
@@ -1139,6 +1143,95 @@ function Tracker.PlaceMapButton()
 end
 
 -------------------------------------------------------------------------------------------
+-- Every quest's name is a link to the map: click it and the map opens with the quest log, and
+-- that quest's dots pulse (or chat says which zone it's in). It's the map button's secure click,
+-- one per row, laid over the name on the screen and moved only out of combat (rows don't move
+-- in one: Layout waits for it to end). A plain left click is the link's; right, shift and ctrl
+-- clicks do what they do anywhere else on the card.
+-------------------------------------------------------------------------------------------
+
+local NOOP = rawget(_G, "ATTRIBUTE_NOOP") or ""   -- the secure templates' "do nothing"
+local function mapShown() return WorldMapFrame and WorldMapFrame:IsShown() end
+
+local function titleLink(i)
+  if titleLinks[i] or InCombatLockdown() then return titleLinks[i] end
+  local delegate = mapDelegate()
+  if not delegate then return nil end
+  local b = CreateFrame("Button", nil, UIParent, "SecureActionButtonTemplate")
+  b:SetFrameStrata("MEDIUM")
+  b:RegisterForClicks("AnyUp")
+  b:SetAttribute("useOnKeyDown", false)
+  b:SetAttribute("type1", "click")   -- a plain left click only ("type1" has no modifiers)
+  b:SetAttribute("clickbutton", delegate)
+  b.line = b:CreateTexture(nil, "OVERLAY")
+  b.line:SetColorTexture(1, 1, 1, .45)
+  b.line:SetHeight(1)
+  b.line:SetPoint("BOTTOMLEFT", 0, 1)
+  b.line:SetPoint("BOTTOMRIGHT", 0, 1)
+  b.line:Hide()
+  -- the game's button toggles the map: when it's already open, leave it open and just show the quest
+  b:SetScript("PreClick", function(self)
+    if not InCombatLockdown() then self:SetAttribute("type1", mapShown() and NOOP or "click") end
+  end)
+  b:HookScript("OnClick", function(self, button)
+    local row = self.row
+    if not (row and row.m) then return end
+    if button == "LeftButton" and not (IsShiftKeyDown() or IsControlKeyDown() or IsAltKeyDown()) then
+      local m = row.m
+      C_Timer.After(0, function() showOnMap(m) end)
+    else
+      local click = row:GetScript("OnClick")
+      if click then click(row, button) end
+    end
+  end)
+  b:SetScript("OnEnter", function(self)
+    self.line:Show()
+    local enter = self.row and self.row.m and self.row:GetScript("OnEnter")
+    if enter then enter(self.row) end
+  end)
+  b:SetScript("OnLeave", function(self)
+    self.line:Hide()
+    local leave = self.row and self.row:GetScript("OnLeave")
+    if leave then leave(self.row) end
+  end)
+  titleLinks[i] = b
+  return b
+end
+
+---Lays a link over each quest's name (out of combat; in one they stay and fade with the tracker).
+function Tracker.PlaceTitleLinks()
+  if not f then return end
+  if InCombatLockdown() then
+    for _, b in pairs(titleLinks) do b:SetAlpha(f:IsVisible() and 1 or 0) end
+    return
+  end
+  local placed = {}
+  if f:IsVisible() and not CV.char.tracker.collapsed then
+    local listTop, listBottom = f.scroll:GetTop(), f.scroll:GetBottom()
+    for i, row in ipairs(rows) do
+      local t = row.title
+      local l, r, top, bottom = t:GetLeft(), t:GetRight(), t:GetTop(), t:GetBottom()
+      local whole = top and listTop and top <= listTop + 1 and bottom >= listBottom - 1   -- links can't be clipped
+      local b = row:IsShown() and row.m and l and r and whole and titleLink(i)
+      if b then
+        local s = t:GetEffectiveScale() / UIParent:GetEffectiveScale()
+        b.row = row
+        b:ClearAllPoints()
+        b:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", l * s, (top + 2) * s)
+        b:SetSize(math.max(8, (r - l) * s), (top - bottom + 4) * s)
+        b:SetFrameLevel(row:GetFrameLevel() + 10)
+        b:SetAlpha(1)
+        b:Show()
+        placed[i] = true
+      end
+    end
+  end
+  for i, b in pairs(titleLinks) do
+    if not placed[i] then b:Hide() b.row = nil end
+  end
+end
+
+-------------------------------------------------------------------------------------------
 -- Blizzard's tracker: hidden while ours is shown
 -------------------------------------------------------------------------------------------
 
@@ -1175,7 +1268,7 @@ function Tracker:SetShown(on)
   CV.char.tracker.shown = on and true or false
   if f then
     f:SetShown(on)
-    if on then self:Layout() else placeItemButtons() Tracker.PlaceMapButton() end
+    if on then self:Layout() else placeItemButtons() Tracker.PlaceMapButton() Tracker.PlaceTitleLinks() end
   end
   applyBlizzard()
 end
@@ -1204,5 +1297,5 @@ CV:Listen("PINS_UPDATED", "tracker", function() Tracker:Tick(true) end)   -- new
 Core:Listen("NORGANNON_LEVEL_CHANGED", "clairvoyance.tracker", function() Tracker:Refresh(true) end)
 Core:Listen("NORGANNON_QUEST_COLOR_CHANGED", "clairvoyance.tracker", function() Tracker:Refresh(true) end)
 Core:On("PLAYER_REGEN_ENABLED", "clairvoyance.tracker", function()
-  if layoutPending then Tracker:Layout() else Tracker.PlaceMapButton() end
+  if layoutPending then Tracker:Layout() else Tracker.PlaceMapButton() Tracker.PlaceTitleLinks() end
 end)

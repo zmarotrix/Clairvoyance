@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.16.0 (2026-11-11)
+
+- **Every quest's name in the tracker opens the map.** Click a quest's name and the map opens with the quest log beside it, and that quest's dots pulse. If the quest is in another zone, chat says which one. It works in combat too, the same clean way as the map button: the game opens the map as if you had pressed its quest log button. When the map is already open, clicking a name leaves it open and shows that quest. One exception: in combat, a click on a name closes an open map, because the game's button toggles the map.
+- The name underlines when you point at it. Clicking elsewhere on the card still expands or compacts the quest. Ctrl-click, shift-click and right-click do the same thing on the name as anywhere else on the card.
+- The quest tooltip's hints name the new click.
+
 ## 0.15.0 (2026-11-11)
 
 - **A map button in the tracker's header** (the pin, beside search). It opens the map and makes the focused quest's dots pulse, or the top quest's if none is focused. It works in combat too. It clicks the game's own quest log button for you, so the game opens the map as if you had, and the map's pins stay clean. The map opens on your zone; for a quest in another zone, chat says which zone it's in.
