@@ -16,6 +16,8 @@ local C = UI.C
 local Tips = {}
 CV.Tooltips = Tips
 
+local function public(t) return type(t) == "table" and not Core.IsSecret(t) end
+
 local MAX_COULD = 4      -- quests you could take, listed on an item's tooltip before "and N more"
 
 -------------------------------------------------------------------------------------------
@@ -56,8 +58,33 @@ local function progressText(o)
   return o.name or "?"
 end
 
----Adds the quest lines for one entity to a tooltip; returns how many it added.
-function Tips:AddLines(tt, kind, id, seen)
+---The quests the game's own tooltip already lists (its QuestTitle lines): { [questId] = true,
+---[title] = true }, or nil. Clairvoyance leaves those to the game, so a kill target isn't listed twice.
+function Tips.GameQuests(data)
+  local lines = public(data) and public(data.lines) and data.lines
+  local titleType = Enum and Enum.TooltipDataLineType and Enum.TooltipDataLineType.QuestTitle
+  if not (lines and titleType) then return nil end
+  local out
+  for _, line in ipairs(lines) do
+    if public(line) and line.type == titleType then
+      out = out or {}
+      local id = line.id
+      if id == nil and public(line.args) then
+        for _, arg in ipairs(line.args) do
+          if public(arg) and arg.field == "id" then id = arg.intVal end
+        end
+      end
+      if type(id) == "number" and not Core.IsSecret(id) then out[id] = true end
+      local text = line.leftText
+      if type(text) == "string" and not Core.IsSecret(text) then out[text] = true end
+    end
+  end
+  return out
+end
+
+---Adds the quest lines for one entity to a tooltip; returns how many it added. `game`: the quests
+---the game's tooltip lists already (Tips.GameQuests), skipped here.
+function Tips:AddLines(tt, kind, id, seen, game)
   if not CV.db.tooltips then return 0 end
   if dirty then rebuild() end
   seen = seen or {}
@@ -71,7 +98,7 @@ function Tips:AddLines(tt, kind, id, seen)
     local questId, index = hit[1], hit[2]
     local m = CV.Model:Get(questId)
     local o = m and m.objectives[index]
-    if o and not seen[questId .. ":" .. index] then
+    if o and not seen[questId .. ":" .. index] and not (game and (game[questId] or game[m.title])) then
       seen[questId .. ":" .. index] = true
       if not headed[questId] then
         headed[questId] = true
@@ -146,12 +173,10 @@ function Tips.ParseGUID(guid)
   if kind == "GameObject" then return "objects", id end
 end
 
-local function public(t) return type(t) == "table" and not Core.IsSecret(t) end
-
 local function onUnit(tt, data)
   if not CV.ready or not public(data) then return end
   local kind, id = Tips.ParseGUID(data.guid)
-  if kind == "npcs" and Tips:AddLines(tt, kind, id) > 0 then tt:Show() end
+  if kind == "npcs" and Tips:AddLines(tt, kind, id, nil, Tips.GameQuests(data)) > 0 then tt:Show() end
 end
 
 local function onItem(tt, data)
@@ -164,15 +189,16 @@ local function onObject(tt, data)
   if not CV.ready or not public(data) then return end
   local kind, id = Tips.ParseGUID(data.guid)
   local added = 0
+  local game = Tips.GameQuests(data)
   if kind == "objects" then
-    added = Tips:AddLines(tt, kind, id)
+    added = Tips:AddLines(tt, kind, id, nil, game)
   else
     -- no usable GUID: match the object's name (every object of that name)
     local line = public(data.lines) and data.lines[1]
     local name = public(line) and line.leftText
     local seen = {}
     for _, objectId in ipairs(Core.DB:IdsByName("objects", name)) do
-      added = added + Tips:AddLines(tt, "objects", objectId, seen)
+      added = added + Tips:AddLines(tt, "objects", objectId, seen, game)
     end
   end
   if added > 0 then tt:Show() end

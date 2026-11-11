@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.14.7 (2026-11-10)
+
+- A creature or object's tooltip no longer lists your quest twice. When the game's own tooltip already shows the quest and your progress, Clairvoyance leaves it to the game and adds only what the game doesn't show.
+
 ## 0.14.6 (2026-11-10)
 
 - The turn-in ? and the distance on a detailed card sit level with the quest's name, at the same height as on a compact card. The ? sat too high before.
