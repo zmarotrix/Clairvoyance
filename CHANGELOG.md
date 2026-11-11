@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.15.0 (2026-11-11)
+
+- **A map button in the tracker's header** (the pin, beside search). It opens the map and makes the focused quest's dots pulse, or the top quest's if none is focused. It works in combat too. It clicks the game's own quest log button for you, so the game opens the map as if you had, and the map's pins stay clean. The map opens on your zone; for a quest in another zone, chat says which zone it's in.
+- While the tracker is being dragged, the map button hides, and it comes back over its spot when you let go. You can't drag the tracker in combat, as before.
+- `/clair maptaint` says when only OpenMap has touched the map's pins: that's OpenMap's own features, not the suite.
+- `/clair mapprobe` is gone; it found the way the map button works.
+
 ## 0.14.12 (2026-11-11)
 
 - `/clair maptaint` no longer counts OpenMap's combat fix as damage. OpenMap puts its own mouse setup on every map pin on purpose, so the map doesn't error in combat. Those pins are now reported apart, and only other changes count as tainted.

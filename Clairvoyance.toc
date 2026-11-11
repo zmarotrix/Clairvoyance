@@ -3,7 +3,7 @@
 ## Category: NorgannonDB
 ## Notes: A modern quest helper for WoW Forever: objectives on the map, minimap and compass, a quest tracker, party progress. Powered by NorgannonDB. /clair
 ## Author: Maro
-## Version: 0.14.12
+## Version: 0.15.0
 ## X-License: All Rights Reserved
 ## Dependencies: NorgannonDB, NorgannonDB_Core
 ## SavedVariables: ClairvoyanceDB
@@ -29,4 +29,3 @@ questlog.lua
 settings.lua
 welcome.lua
 perf.lua
-mapprobe.lua

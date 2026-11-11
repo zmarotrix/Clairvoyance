@@ -49,10 +49,11 @@ Core:NewAddon("clairvoyance", {
       if not bad then return CV:Print("Can't check the map: " .. tostring(pins) .. ".") end
       local note = (fixed or 0) > 0 and string.format(" OpenMap's combat fix is on %d of them, which is fine.", fixed) or ""
       if bad == 0 then return CV:Print(string.format("The map is clean (%d pins checked).%s", pins, note)) end
-      CV:Print(string.format("%d of the map's %d pins were touched by add-on code (%s). Toggling the map in combat "
-        .. "may fail until you /reload.", bad, pins, table.concat(names, ", ")))
+      local onlyOpenMap = #names == 1 and names[1] == "OpenMap"
+      CV:Print(string.format("%d of the map's %d pins were touched by add-on code (%s).", bad, pins, table.concat(names, ", "))
+        .. (onlyOpenMap and " That's OpenMap's own map features; none of the suite's add-ons touched them."
+          or " Toggling the map in combat may fail until you /reload."))
     end, "check whether add-on code has tainted the world map's pins (open the map first)" },
-    mapprobe = { function(rest) CV.MapProbe.Command(rest) end, "[button | hide]: test opening the map with a secure button (research)" },
     perf = { function(rest) CV.Perf.Command(rest) end, "[seconds | stop | report]: measure Clairvoyance while you play" },
   },
   minimap = {
@@ -79,9 +80,11 @@ function CV:ShowOnMap(area, key)
   if not reveal then Core.Map:Pulse(key) return false end
   local now, zone = reveal(Core.Map, area, key)
   if not now then
-    local hint = zone and ("Open your map (M): it's in " .. zone .. ".") or "Open your map (M) to see it."
+    local open = WorldMapFrame and WorldMapFrame:IsShown()
+    local hint = open and (zone and ("It's in " .. zone .. ".") or nil)
+      or zone and ("Open your map (M): it's in " .. zone .. ".") or "Open your map (M) to see it."
     local t = GetTime()
-    if hint ~= lastHint or not lastHintAt or t - lastHintAt > HINT_QUIET then CV:Print(hint) end
+    if hint and (hint ~= lastHint or not lastHintAt or t - lastHintAt > HINT_QUIET) then CV:Print(hint) end
     lastHint, lastHintAt = hint, t
   end
   return now

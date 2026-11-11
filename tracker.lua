@@ -780,6 +780,7 @@ function Tracker:Draw(quests)
   f:SetHeight(collapsed and 26 or (26 + 24 + listH + 4 + GRIP))
   f.grip:SetShown(not collapsed)
   placeItemButtons()
+  Tracker.PlaceMapButton()
 end
 
 ---How tall the list may get before it scrolls: the length you dragged, else a share of the screen.
@@ -883,7 +884,11 @@ local function build()
   head:SetPoint("TOPRIGHT")
   head:EnableMouse(true)
   head:RegisterForDrag("LeftButton")
-  head:SetScript("OnDragStart", function() if not InCombatLockdown() then f:StartMoving() end end)
+  head:SetScript("OnDragStart", function()
+    if InCombatLockdown() then return end
+    if Tracker.MapButton then Tracker.MapButton:Hide() end   -- back over its slot when you let go
+    f:StartMoving()
+  end)
   head:SetScript("OnDragStop", function() f:StopMovingOrSizing() savePosition() Tracker:Layout() end)
   f.mark = UI.Mark(head, "clairvoyance", 20)
   f.mark:SetPoint("LEFT", 0, 0)
@@ -925,6 +930,11 @@ local function build()
   end)
   find:SetScript("OnLeave", function(self) self.icon:SetVertexColor(C.muted[1], C.muted[2], C.muted[3]) GameTooltip:Hide() end)
   f.find = find
+  -- the map: a secure button (see Tracker.MapButton) lies over this slot
+  local mapSlot = CreateFrame("Frame", nil, head)
+  mapSlot:SetSize(18, 18)
+  mapSlot:SetPoint("RIGHT", find, "LEFT", -2, 0)
+  f.mapSlot = mapSlot
   f.collapse = UI.Icon(collapse, "chevron", 12, C.muted)
   f.collapse:SetPoint("CENTER")
   collapse:SetScript("OnClick", function()
@@ -1051,6 +1061,84 @@ local function build()
 end
 
 -------------------------------------------------------------------------------------------
+-- The map button in the header: opens the map and shows the focused quest (else the top one).
+-- Add-on code can't open the map without tainting its pins (0.12.1, 0.12.2), so this is a
+-- secure button that clicks the game's own quest log button for you: the game opens the map as
+-- if you had (/clair mapprobe showed the pins stay clean, 0.14.12). It lies on the screen over
+-- f.mapSlot rather than inside the tracker: a secure child would freeze the tracker in combat.
+-- It's set up and moved only out of combat (Layout, which never runs in one, and combat's end).
+-------------------------------------------------------------------------------------------
+
+local MAP_DELEGATES = { "QuestLogMicroButton", "WorldMapMicroButton", "MiniMapWorldMapButton" }
+local mapButton
+
+local function mapDelegate()
+  for _, name in ipairs(MAP_DELEGATES) do
+    local b = rawget(_G, name)
+    if type(b) == "table" and b.Click and not (b.HasAccessConstraints and b:HasAccessConstraints()) then return b end
+  end
+end
+
+---The quest the map button shows: the focused one, else the top of the tracker.
+function Tracker.MapQuest()
+  local m = CV.focus and CV.Model:Get(CV.focus)
+  if m then return m end
+  for _, q in ipairs(order) do if CV.Pins:Nearest(q.id) then return q end end
+end
+
+local function buildMapButton()
+  if mapButton or InCombatLockdown() then return mapButton end
+  local delegate = mapDelegate()
+  if not delegate then return nil end
+  local b = CreateFrame("Button", "ClairvoyanceTrackerMap", UIParent, "SecureActionButtonTemplate")
+  b:SetSize(18, 18)
+  b:SetFrameStrata("MEDIUM")
+  b:RegisterForClicks("AnyUp")
+  b:SetAttribute("useOnKeyDown", false)
+  b:SetAttribute("type", "click")
+  b:SetAttribute("clickbutton", delegate)
+  b.icon = UI.Icon(b, "pin", 12, C.muted)
+  b.icon:SetPoint("CENTER")
+  b:HookScript("OnClick", function()
+    local m = Tracker.MapQuest()
+    if m then C_Timer.After(0, function() showOnMap(m) end) end
+  end)
+  b:SetScript("OnEnter", function(self)
+    self.icon:SetVertexColor(1, 1, 1)
+    GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+    GameTooltip:AddLine("Open the map", 1, 1, 1)
+    local m = Tracker.MapQuest()
+    if m then GameTooltip:AddLine("Shows " .. m.title, C.muted[1], C.muted[2], C.muted[3]) end
+    GameTooltip:Show()
+  end)
+  b:SetScript("OnLeave", function(self) self.icon:SetVertexColor(C.muted[1], C.muted[2], C.muted[3]) GameTooltip:Hide() end)
+  mapButton = b
+  Tracker.MapButton = b
+  return b
+end
+
+---Puts the map button over its slot in the header (out of combat; in one it stays and fades with the tracker).
+function Tracker.PlaceMapButton()
+  if not (f and f.mapSlot) then return end
+  if InCombatLockdown() then
+    if mapButton then mapButton:SetAlpha(f:IsVisible() and 1 or 0) end
+    return
+  end
+  local b = buildMapButton()
+  if not b then return end
+  local cx, cy = f.mapSlot:GetCenter()
+  if not (f:IsVisible() and cx) then b:Hide() return end
+  local scale = f.mapSlot:GetEffectiveScale() / UIParent:GetEffectiveScale()
+  b:SetScale(scale)
+  b:ClearAllPoints()
+  b:SetPoint("CENTER", UIParent, "BOTTOMLEFT", cx * f.mapSlot:GetEffectiveScale() / b:GetEffectiveScale(),
+    cy * f.mapSlot:GetEffectiveScale() / b:GetEffectiveScale())
+  b:SetFrameLevel(f:GetFrameLevel() + 20)
+  b:SetAlpha(1)
+  b:Show()
+end
+
+-------------------------------------------------------------------------------------------
 -- Blizzard's tracker: hidden while ours is shown
 -------------------------------------------------------------------------------------------
 
@@ -1087,7 +1175,7 @@ function Tracker:SetShown(on)
   CV.char.tracker.shown = on and true or false
   if f then
     f:SetShown(on)
-    if on then self:Layout() else placeItemButtons() end
+    if on then self:Layout() else placeItemButtons() Tracker.PlaceMapButton() end
   end
   applyBlizzard()
 end
@@ -1115,4 +1203,6 @@ CV:Listen("PINS_UPDATED", "tracker", function() Tracker:Tick(true) end)   -- new
 -- level colours are relative to the player's level
 Core:Listen("NORGANNON_LEVEL_CHANGED", "clairvoyance.tracker", function() Tracker:Refresh(true) end)
 Core:Listen("NORGANNON_QUEST_COLOR_CHANGED", "clairvoyance.tracker", function() Tracker:Refresh(true) end)
-Core:On("PLAYER_REGEN_ENABLED", "clairvoyance.tracker", function() if layoutPending then Tracker:Layout() end end)
+Core:On("PLAYER_REGEN_ENABLED", "clairvoyance.tracker", function()
+  if layoutPending then Tracker:Layout() else Tracker.PlaceMapButton() end
+end)
