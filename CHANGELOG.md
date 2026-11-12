@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.16.4 (2026-11-11)
+
+- **Clicking a quest's name in the tracker shows it in the quest log.** Its row in the log glows for a few seconds, so it's easy to find. With the map already open, clicking the name opens the quest's text, just as clicking it in the log does. It's the game's own click on the quest's row, so the map stays clean.
+- A quest under a collapsed header in the log can't glow or open. The map still opens and the quest's dots still pulse.
+
 ## 0.16.3 (2026-11-11)
 
 - **Forever's own quests show their level again.** Quests from new content, such as Shen'dralas, showed a dash in the tracker's level badge instead of their level. They were treated like quests anyone can do at any level, because the database has their level but not the minimum level to take them. Now a quest counts as having no real level only when its minimum level is known. This also fixes their colours, and whether their givers count as low level or far above you.

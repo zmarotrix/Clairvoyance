@@ -368,7 +368,7 @@ function Tracker:ShowTooltip(row, m)
     GameTooltip:AddLine(line[1], line[2][1], line[2][2], line[2][3], true)
   end
   local fa = C.faint
-  GameTooltip:AddLine("Click the name: open the map · Click the card: expand or compact", fa[1], fa[2], fa[3])
+  GameTooltip:AddLine("Click the name: open the map, again for the quest text · Click the card: expand or compact", fa[1], fa[2], fa[3])
   GameTooltip:AddLine("Ctrl-click: point the arrow · Right-click: actions", fa[1], fa[2], fa[3])
   GameTooltip:Show()
 end
@@ -1143,15 +1143,64 @@ function Tracker.PlaceMapButton()
 end
 
 -------------------------------------------------------------------------------------------
--- Every quest's name is a link to the map: click it and the map opens with the quest log, and
--- that quest's dots pulse (or chat says which zone it's in). It's the map button's secure click,
--- one per row, laid over the name on the screen and moved only out of combat (rows don't move
--- in one: Layout waits for it to end). A plain left click is the link's; right, shift and ctrl
--- clicks do what they do anywhere else on the card.
+-- Every quest's name is a link to the map: click it and the map opens with the quest log, that
+-- quest's dots pulse (or chat says which zone it's in) and its row in the log glows. With the map
+-- already open, the click goes to the quest's own row in the log instead, so the game opens the
+-- quest's text exactly as if you had clicked it there (add-on code calling the log's functions
+-- taints the map: see CV:ShowOnMap). It's a secure click, one per row, laid over the name on the
+-- screen and moved only out of combat (rows don't move in one: Layout waits for it to end). A
+-- plain left click is the link's; right, shift and ctrl clicks do what they do anywhere else on
+-- the card.
 -------------------------------------------------------------------------------------------
 
 local NOOP = rawget(_G, "ATTRIBUTE_NOOP") or ""   -- the secure templates' "do nothing"
 local function mapShown() return WorldMapFrame and WorldMapFrame:IsShown() end
+
+---The quest's row in the game's quest log, while the log has laid it out (nil under a collapsed
+---header, or on a client without the modern log). Only looks: it never calls the log's updates.
+function Tracker.LogRow(questId)
+  local find = rawget(_G, "QuestLogQuests_GetQuestButton")
+  if not (find and questId) then return nil end
+  local ok, row = pcall(find, questId)
+  if ok and type(row) == "table" and row.Click then return row end
+end
+
+-- a soft glow laid over the quest's row in the log: our own frame on top of theirs, never a
+-- change to theirs. It fades out, and goes as soon as the row does (the log scrolls or closes).
+local GLOW_TIME = 3
+local glow
+function Tracker.GlowLogRow(questId)
+  local row = Tracker.LogRow(questId)
+  if not (row and row:IsVisible()) then return false end
+  if not glow then
+    glow = CreateFrame("Frame", nil, UIParent)
+    glow:EnableMouse(false)
+    glow.fill = glow:CreateTexture(nil, "OVERLAY")
+    glow.fill:SetAllPoints()
+    glow.fill:SetColorTexture(1, .82, .2, .22)
+    glow.edge = glow:CreateTexture(nil, "OVERLAY")
+    glow.edge:SetColorTexture(1, .82, .2, .9)
+    glow.edge:SetWidth(3)
+    glow.edge:SetPoint("TOPLEFT")
+    glow.edge:SetPoint("BOTTOMLEFT")
+    glow:SetScript("OnUpdate", function(self, elapsed)
+      self.left = self.left - elapsed
+      local r = self.row
+      if self.left <= 0 or not (r and r:IsVisible() and (r.questID == nil or r.questID == self.questId)) then
+        self:Hide() self.row = nil return
+      end
+      self:SetAlpha(math.min(1, self.left / 1))
+    end)
+  end
+  glow.row, glow.questId, glow.left = row, questId, GLOW_TIME
+  glow:SetFrameStrata(row:GetFrameStrata())
+  glow:SetFrameLevel(row:GetFrameLevel() + 5)
+  glow:ClearAllPoints()
+  glow:SetAllPoints(row)
+  glow:SetAlpha(1)
+  glow:Show()
+  return true
+end
 
 local function titleLink(i)
   if titleLinks[i] or InCombatLockdown() then return titleLinks[i] end
@@ -1169,16 +1218,28 @@ local function titleLink(i)
   b.line:SetPoint("BOTTOMLEFT", 0, 1)
   b.line:SetPoint("BOTTOMRIGHT", 0, 1)
   b.line:Hide()
-  -- the game's button toggles the map: when it's already open, leave it open and just show the quest
+  -- the map closed: the game's own button opens it. Open: click the quest's row in the log (the
+  -- game shows its text), else nothing (the game's button would close the map again).
   b:SetScript("PreClick", function(self)
-    if not InCombatLockdown() then self:SetAttribute("type1", mapShown() and NOOP or "click") end
+    if InCombatLockdown() then return end
+    if not mapShown() then
+      self:SetAttribute("type1", "click")
+      self:SetAttribute("clickbutton", mapDelegate())
+      return
+    end
+    local logRow = self.row and self.row.m and Tracker.LogRow(self.row.m.id)
+    self:SetAttribute("type1", logRow and "click" or NOOP)
+    self:SetAttribute("clickbutton", logRow or mapDelegate())
   end)
   b:HookScript("OnClick", function(self, button)
     local row = self.row
     if not (row and row.m) then return end
     if button == "LeftButton" and not (IsShiftKeyDown() or IsControlKeyDown() or IsAltKeyDown()) then
       local m = row.m
-      C_Timer.After(0, function() showOnMap(m) end)
+      C_Timer.After(0, function()
+        showOnMap(m)
+        Tracker.GlowLogRow(m.id)
+      end)
     else
       local click = row:GetScript("OnClick")
       if click then click(row, button) end
