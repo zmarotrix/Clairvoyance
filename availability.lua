@@ -19,9 +19,11 @@ local Availability = { byArea = {}, FAR_ABOVE = 10, LEVELLESS_GAP = 20 }
 
 ---A quest whose level is far beyond its minimum (e.g. level 60, open from level 1) has no real
 ---level: WoW Forever uses that for quests anyone can do. It is never trivial or too high.
+---Only with a known minimum: quests the Collector recorded have a level but no minimum, and a
+---level-43 quest isn't levelless just because nothing says it needs level 23.
 function Availability.Levelless(q)
-  local level = q and q.level
-  return level ~= nil and level > 0 and level - (q.minLevel or 1) >= Availability.LEVELLESS_GAP
+  local level, minLevel = q and q.level, q and q.minLevel
+  return level ~= nil and minLevel ~= nil and level > 0 and level - minLevel >= Availability.LEVELLESS_GAP
 end
 CV.Availability = Availability
 

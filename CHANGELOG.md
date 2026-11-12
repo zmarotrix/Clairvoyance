@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.16.3 (2026-11-11)
+
+- **Forever's own quests show their level again.** Quests from new content, such as Shen'dralas, showed a dash in the tracker's level badge instead of their level. They were treated like quests anyone can do at any level, because the database has their level but not the minimum level to take them. Now a quest counts as having no real level only when its minimum level is known. This also fixes their colours, and whether their givers count as low level or far above you.
+
 ## 0.16.2 (2026-11-11)
 
 - **Quest givers on zoomed-out maps.** On a continent map, every giver with quests for you shows as a small "!". Givers standing close together, such as a town's, merge into one mark, and its tooltip lists them. The same filters apply as on zone maps: low-level and far-above quests stay hidden unless their settings are on. The continent's zones are worked out one per frame the first time you open it, so the marks fill in over a moment. Needs Norgannon Core 1.28.5.
