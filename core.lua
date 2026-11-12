@@ -44,6 +44,22 @@ Core:NewAddon("clairvoyance", {
       CV:Print(string.format("  difficulty: game says %s, level rule says %s", CV.Availability.GameDifficulty(id) or "nothing",
         byLevel or "nothing"))
     end, "<questId>: is a quest available, and if not, why" },
+    available = { function()
+      -- per zone worked out (yours, and every zone the map shows): what's offered, what's hidden and why
+      if not CV.db.filters.available then return CV:Print("Available quests are turned off (Settings > Map).") end
+      for _, area in ipairs(CV.Availability:Areas()) do
+        local shown, low, high, hidden = 0, 0, 0, 0
+        for _, e in ipairs(CV.Availability:ForArea(area)) do
+          if e.trivial and not CV.db.showTrivial then low = low + 1
+          elseif e.farAbove and not CV.db.showFarAbove then high = high + 1
+          elseif CV:IsHiddenOnMap(e.id) then hidden = hidden + 1
+          else shown = shown + 1 end
+        end
+        local zone = Core.DB:Zone(area)
+        CV:Print(string.format("%s: %d on the map; hidden: %d low level, %d far above you, %d you hid; %d quests start here in all.",
+          (C_Map.GetAreaInfo and C_Map.GetAreaInfo(area)) or ("zone " .. area), shown, low, high, hidden, #(zone and zone.quests or {})))
+      end
+    end, "which quests are offered in your zone and the zones on the map" },
     maptaint = { function()
       local bad, pins, names, fixed = CV.MapTaint()
       if not bad then return CV:Print("Can't check the map: " .. tostring(pins) .. ".") end

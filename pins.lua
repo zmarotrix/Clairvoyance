@@ -223,52 +223,64 @@ function Pins:RebuildAvailable()
     return
   end
   local pins = {}
+  -- a zone not worked out yet costs a few dozen ms: one per frame (your own zone first), so
+  -- panning OpenMap's stitched map over new zones doesn't stall; the rest follow frame by frame
+  local fresh, later = 0, false
   for _, area in ipairs(CV.Availability:Areas()) do
-    local givers, order = {}, {}
-    for _, e in ipairs(CV.Availability:ForArea(area)) do
-      if (CV.db.showTrivial or not e.trivial) and (CV.db.showFarAbove or not e.farAbove) and not CV:IsHiddenOnMap(e.id) then
-        for _, starter in ipairs(e.starters) do
-          local key = starter.kind .. starter.id
-          if not givers[key] then
-            givers[key] = { target = starter, entries = {} }
-            order[#order + 1] = key
+    local skip = false
+    if not CV.Availability:Known(area) then
+      fresh = fresh + 1
+      skip = fresh > 1
+      later = later or skip
+    end
+    if not skip then
+      local givers, order = {}, {}
+      for _, e in ipairs(CV.Availability:ForArea(area)) do
+        if (CV.db.showTrivial or not e.trivial) and (CV.db.showFarAbove or not e.farAbove) and not CV:IsHiddenOnMap(e.id) then
+          for _, starter in ipairs(e.starters) do
+            local key = starter.kind .. starter.id
+            if not givers[key] then
+              givers[key] = { target = starter, entries = {} }
+              order[#order + 1] = key
+            end
+            table.insert(givers[key].entries, e)
           end
-          table.insert(givers[key].entries, e)
         end
       end
-    end
-    for _, key in ipairs(order) do
-      local g = givers[key]
-      local allTrivial, allRepeatable = true, true
-      for _, e in ipairs(g.entries) do
-        if not e.trivial then allTrivial = false end
-        if not e.repeatable then allRepeatable = false end
-      end
-      table.sort(g.entries, function(a, b) return a.level < b.level end)
-      local record = NorgannonDB:Get(g.target.kind, g.target.id)
-      local name = CV.Model.TargetName(g.target)
-      local tooltip = availableTooltip(g.entries)
-      -- one "!" per spot for the same set of quests, however many spawns stand there
-      local ids = {}
-      for _, e in ipairs(g.entries) do ids[#ids + 1] = e.id end
-      table.sort(ids)
-      local overlapKey = "a" .. table.concat(ids, ",")
-      for _, p in ipairs(record and record.spawns and record.spawns[area] or {}) do
-        if p[1] and p[1] >= 0 then
-          pins[#pins + 1] = {
-            area = area, x = p[1], y = p[2], layer = 4, size = 16, title = name, tooltip = tooltip,
-            icon = allTrivial and "exclaimGrey" or (allRepeatable and "exclaimDaily" or "exclaim"),
-            available = g.entries,   -- no highlight group: hovering a giver doesn't dim the map
-            overlapKey = overlapKey, minimap = questMarksOnMinimap(),
-            onShiftClick = hideGiverPin,
-            shiftHint = #g.entries > 1 and "Shift-click: hide these quests on the map" or "Shift-click: hide this quest on the map",
-          }
+      for _, key in ipairs(order) do
+        local g = givers[key]
+        local allTrivial, allRepeatable = true, true
+        for _, e in ipairs(g.entries) do
+          if not e.trivial then allTrivial = false end
+          if not e.repeatable then allRepeatable = false end
+        end
+        table.sort(g.entries, function(a, b) return a.level < b.level end)
+        local record = NorgannonDB:Get(g.target.kind, g.target.id)
+        local name = CV.Model.TargetName(g.target)
+        local tooltip = availableTooltip(g.entries)
+        -- one "!" per spot for the same set of quests, however many spawns stand there
+        local ids = {}
+        for _, e in ipairs(g.entries) do ids[#ids + 1] = e.id end
+        table.sort(ids)
+        local overlapKey = "a" .. table.concat(ids, ",")
+        for _, p in ipairs(record and record.spawns and record.spawns[area] or {}) do
+          if p[1] and p[1] >= 0 then
+            pins[#pins + 1] = {
+              area = area, x = p[1], y = p[2], layer = 4, size = 16, title = name, tooltip = tooltip,
+              icon = allTrivial and "exclaimGrey" or (allRepeatable and "exclaimDaily" or "exclaim"),
+              available = g.entries,   -- no highlight group: hovering a giver doesn't dim the map
+              overlapKey = overlapKey, minimap = questMarksOnMinimap(),
+              onShiftClick = hideGiverPin,
+              shiftHint = #g.entries > 1 and "Shift-click: hide these quests on the map" or "Shift-click: hide this quest on the map",
+            }
+          end
         end
       end
     end
   end
   Core.Map:SetPins(OWNER_AVAILABLE, pins)
   CV:Send("AVAILABLE_PINS_UPDATED", #pins)
+  if later then Core:NextFrame(function() Pins:RebuildAvailable() end, "clairvoyance.available") end
 end
 
 CV:Listen("AVAILABLE_UPDATED", "pins", function() Pins:RebuildAvailable() end)

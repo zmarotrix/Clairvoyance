@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.16.1 (2026-11-11)
+
+- **Quest givers show in every zone on the map.** On OpenMap's stitched map, available quests showed only in your own zone and the zone under the middle of the map. Neighbouring zones showed their objectives but no givers. Now every zone in view gets its givers. Each new zone is worked out on its own frame, so panning across the map doesn't stall. Needs Norgannon Core 1.28.4.
+- Gathering spots and rares cover the zones in view too.
+- `/clair available` lists, for your zone and each zone on the map, how many quest givers are on the map and how many are hidden: low level, far above you, or hidden by you.
+
 ## 0.16.0 (2026-11-11)
 
 - **Every quest's name in the tracker opens the map.** Click a quest's name and the map opens with the quest log beside it, and that quest's dots pulse. If the quest is in another zone, chat says which one. It works in combat too, the same clean way as the map button: the game opens the map as if you had pressed its quest log button. When the map is already open, clicking a name leaves it open and shows that quest. One exception: in combat, a click on a name closes an open map, because the game's button toggles the map.

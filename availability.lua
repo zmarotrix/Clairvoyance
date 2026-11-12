@@ -197,15 +197,21 @@ function Availability:ForArea(area)
   return list
 end
 
--- the areas worth knowing: where the player is and what the world map shows
-local playerArea, mapArea
+-- the areas worth knowing: where the player is and every zone the world map shows (with OpenMap's
+-- stitched map, the zones around the one underneath too)
+local playerArea, mapArea, mapZones = nil, nil, {}
 
 function Availability:Areas()
-  local out = {}
-  if playerArea then out[#out + 1] = playerArea end
-  if mapArea and mapArea ~= playerArea then out[#out + 1] = mapArea end
+  local out, seen = {}, {}
+  local function add(a) if a and not seen[a] then seen[a] = true out[#out + 1] = a end end
+  add(playerArea)
+  add(mapArea)
+  for _, a in ipairs(mapZones) do add(a) end
   return out
 end
+
+---Whether an area's quests are worked out already (ForArea costs a few dozen ms per new zone).
+function Availability:Known(area) return self.byArea[area] ~= nil end
 
 function Availability:Invalidate()
   self.byArea = {}
@@ -228,6 +234,11 @@ Core:Listen("NORGANNON_WORLDMAP_CHANGED", "clairvoyance.availability", function(
   if not CV.ready then return end
   mapArea = uiMap and area or nil
   CV:Send("AVAILABLE_UPDATED", mapArea)
+end)
+Core:Listen("NORGANNON_WORLDMAP_ZONES", "clairvoyance.availability", function(_, zones)
+  if not CV.ready then return end
+  mapZones = type(zones) == "table" and zones or {}
+  CV:Send("AVAILABLE_UPDATED")
 end)
 -- anything that changes the rules' answers
 local function invalidateSoon()
