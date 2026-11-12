@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.16.2 (2026-11-11)
+
+- **Quest givers on zoomed-out maps.** On a continent map, every giver with quests for you shows as a small "!". Givers standing close together, such as a town's, merge into one mark, and its tooltip lists them. The same filters apply as on zone maps: low-level and far-above quests stay hidden unless their settings are on. The continent's zones are worked out one per frame the first time you open it, so the marks fill in over a moment. Needs Norgannon Core 1.28.5.
+- Gathering spots and rares still cover only your zone and the zones you look at up close.
+
 ## 0.16.1 (2026-11-11)
 
 - **Quest givers show in every zone on the map.** On OpenMap's stitched map, available quests showed only in your own zone and the zone under the middle of the map. Neighbouring zones showed their objectives but no givers. Now every zone in view gets its givers. Each new zone is worked out on its own frame, so panning across the map doesn't stall. Needs Norgannon Core 1.28.4.

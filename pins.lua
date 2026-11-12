@@ -271,6 +271,8 @@ function Pins:RebuildAvailable()
               available = g.entries,   -- no highlight group: hovering a giver doesn't dim the map
               overlapKey = overlapKey, minimap = questMarksOnMinimap(),
               onShiftClick = hideGiverPin,
+              -- zoomed out (continent maps): one small "!" per giver, a town's givers as one
+              continent = true, continentGroup = key, continentMerge = "givers", continentMergeLabel = "quest givers",
               shiftHint = #g.entries > 1 and "Shift-click: hide these quests on the map" or "Shift-click: hide this quest on the map",
             }
           end

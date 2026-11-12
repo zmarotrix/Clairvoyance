@@ -543,7 +543,7 @@ Core:On("NAME_PLATE_UNIT_ADDED", "clairvoyance.rares", function(_, unit) Extras:
 local lastAreas = ""
 
 function Extras:RebuildZones(force)
-  local areas = CV.Availability:Areas()
+  local areas = CV.Availability:Areas(true)
   local key = table.concat(areas, ",")
   if not force and key == lastAreas then return end
   lastAreas = key

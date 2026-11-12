@@ -198,15 +198,19 @@ function Availability:ForArea(area)
 end
 
 -- the areas worth knowing: where the player is and every zone the world map shows (with OpenMap's
--- stitched map, the zones around the one underneath too)
-local playerArea, mapArea, mapZones = nil, nil, {}
+-- stitched map, the zones around the one underneath too; on a continent map, all its zones)
+local playerArea, mapArea, mapZones, mapContinent = nil, nil, {}, false
 
-function Availability:Areas()
+---The areas worth working out: the player's zone first, then the zones the world map shows.
+---near: leave out a continent map's zones (gathering and rares are for the zones you look at up close).
+function Availability:Areas(near)
   local out, seen = {}, {}
   local function add(a) if a and not seen[a] then seen[a] = true out[#out + 1] = a end end
   add(playerArea)
   add(mapArea)
-  for _, a in ipairs(mapZones) do add(a) end
+  if not (near and mapContinent) then
+    for _, a in ipairs(mapZones) do add(a) end
+  end
   return out
 end
 
@@ -235,9 +239,10 @@ Core:Listen("NORGANNON_WORLDMAP_CHANGED", "clairvoyance.availability", function(
   mapArea = uiMap and area or nil
   CV:Send("AVAILABLE_UPDATED", mapArea)
 end)
-Core:Listen("NORGANNON_WORLDMAP_ZONES", "clairvoyance.availability", function(_, zones)
+Core:Listen("NORGANNON_WORLDMAP_ZONES", "clairvoyance.availability", function(_, zones, continent)
   if not CV.ready then return end
   mapZones = type(zones) == "table" and zones or {}
+  mapContinent = continent and true or false
   CV:Send("AVAILABLE_UPDATED")
 end)
 -- anything that changes the rules' answers
