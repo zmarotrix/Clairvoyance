@@ -1,9 +1,9 @@
 -- Quest marks on nameplates: a mob you still need for a quest in your log shows a sword (kill it)
--- or a bag (it drops something you need) right of its health bar, with how many are left. A mob
--- that's both shows both.
+-- or a bag (it drops something you need) left of its health bar, with your progress (3/10). A
+-- mob that's both shows both.
 --
 -- Drawn on Blizzard's own plates, our frame parented to theirs (Bulwark adds to the same plates:
--- its raid mark sits above the name or left of the bar, so these go right). The mob is known by
+-- its raid mark sits above the name by default; set to the left, it shares the space). The mob is known by
 -- its GUID when its plate appears; in combat the GUID can be secret, so it's remembered per plate
 -- and progress updates (which come in combat) redraw from what was remembered.
 -- Setting: ClairvoyanceDB.plateMarks.
@@ -17,17 +17,17 @@ local IsSecret = Core.IsSecret
 local Plates = { marks = {}, npcOf = {} }   -- plate -> our frame; unit token -> npc id
 CV.Plates = Plates
 
-local SIZE = 24        -- the badge
-local ICON = 18        -- the icon inside it
-local GAP = 3
+local SIZE = 16        -- the badge
+local ICON = 12        -- the icon inside it
+local GAP = 4
 local KINDS = {   -- the objective's type in the game's log -> the icon (drawn in colour)
   monster = "sword",
   item = "bag",
 }
 local ORDER = { "monster", "item" }
 
----What's left to do on a mob: { monster = n|true, item = n|true } (true when there's no count),
----or nil. Only unfinished objectives of quests in your log.
+---What's left to do on a mob: { monster = {done, total}|true, item = ... } (true when there's no
+---count; two quests wanting the same mob add up), or nil. Only unfinished objectives of quests in your log.
 function Plates.Needs(npcId)
   local needs
   for _, hit in ipairs(CV.Tooltips.ObjectivesFor("npcs", npcId)) do
@@ -36,10 +36,10 @@ function Plates.Needs(npcId)
     local kind = o and not o.finished and (o.type == "monster" and "monster" or o.type == "item" and "item")
     if kind then
       needs = needs or {}
-      local left = (o.current and o.required) and (o.required - o.current) or true
+      local got = (o.current and o.required) and { o.current, o.required } or true
       local had = needs[kind]
-      if had == nil then needs[kind] = left
-      elseif type(had) == "number" and type(left) == "number" then needs[kind] = had + left
+      if had == nil then needs[kind] = got
+      elseif type(had) == "table" and type(got) == "table" then needs[kind] = { had[1] + got[1], had[2] + got[2] }
       else needs[kind] = true end
     end
   end
@@ -55,7 +55,7 @@ local function plateOf(unit)
   return p
 end
 
--- a badge: a dark disc with a thin gold ring, the icon inside, the count in bold on its corner
+-- a badge: a dark disc with a thin gold ring, the icon inside, the progress left of it
 local function badge(f)
   local g = CreateFrame("Frame", nil, f)
   g:SetSize(SIZE, SIZE)
@@ -66,11 +66,12 @@ local function badge(f)
   g.icon = g:CreateTexture(nil, "ARTWORK")
   g.icon:SetSize(ICON, ICON)
   g.icon:SetPoint("CENTER")
-  g.count = UI.Text(g, "bold", 13, nil, "OVERLAY")
+  g.count = UI.Text(g, "bold", 11, nil, "OVERLAY")
   local font = g.count:GetFont()
-  if font then g.count:SetFont(font, 13, "THICKOUTLINE") end
+  if font then g.count:SetFont(font, 11, "OUTLINE") end
   g.count:SetTextColor(1, 1, 1)
-  g.count:SetPoint("BOTTOMLEFT", g, "BOTTOMRIGHT", -7, -3)
+  g.count:SetJustifyH("RIGHT")
+  g.count:SetPoint("RIGHT", g, "LEFT", -1, 0)
   return g
 end
 
@@ -90,7 +91,7 @@ local function place(f, plate)
   local uf = plate.UnitFrame
   local bar = uf and (uf.HealthBarsContainer or uf.healthBar)
   f:ClearAllPoints()
-  if bar then f:SetPoint("LEFT", bar, "RIGHT", 8, 0) else f:SetPoint("LEFT", plate, "RIGHT", 0, 0) end
+  if bar then f:SetPoint("RIGHT", bar, "LEFT", -4, 0) else f:SetPoint("RIGHT", plate, "LEFT", 0, 0) end
   f:SetFrameLevel((plate:GetFrameLevel() or 1) + 12)
 end
 
@@ -123,15 +124,14 @@ function Plates:Update(unit)
       n = n + 1
       local g = f.slots[n]
       g.icon:SetTexture(UI.TEX[KINDS[kind]])
-      local counted = type(left) == "number" and left > 0
-      g.count:SetText(counted and tostring(left) or "")
+      g.count:SetText(type(left) == "table" and (left[1] .. "/" .. left[2]) or "")
       g:ClearAllPoints()
       if prev then
-        -- after the previous badge's count, when it has one
-        local width = prev.count:GetText() ~= "" and math.max(0, prev.count:GetStringWidth() - 7) or 0
-        g:SetPoint("LEFT", prev, "RIGHT", GAP + width, 0)
+        -- right to left from the bar: next to the previous badge's progress, when it has one
+        local width = (prev.count:GetText() or "") ~= "" and (prev.count:GetStringWidth() + 1) or 0
+        g:SetPoint("RIGHT", prev, "LEFT", -(GAP + width), 0)
       else
-        g:SetPoint("LEFT", f, "LEFT", 0, 0)
+        g:SetPoint("RIGHT", f, "RIGHT", 0, 0)
       end
       g:Show()
       prev = g
@@ -184,7 +184,8 @@ function Plates.Report()
         else
           local bits = {}
           for _, kind in ipairs(ORDER) do
-            if needs[kind] then bits[#bits + 1] = KINDS[kind] .. " " .. tostring(needs[kind]) end
+            if needs[kind] then local v = needs[kind]
+            bits[#bits + 1] = KINDS[kind] .. " " .. (type(v) == "table" and (v[1] .. "/" .. v[2]) or "?") end
           end
           local ok, err = pcall(Plates.Update, Plates, unit)
           local plate = plateOf(unit)

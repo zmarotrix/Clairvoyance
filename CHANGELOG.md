@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.17.3 (2026-11-15)
+
+- **Nameplate quest marks are smaller and sit left of the health bar**, with your progress beside them (3/10) instead of how many are left. Two quests wanting the same mob add up.
+
 ## 0.17.2 (2026-11-15)
 
 - **/clair plates** lists each nameplate on screen and why it has a quest mark or not: its GUID is hidden, nothing is left to do on it, or the mark is drawn and where.
