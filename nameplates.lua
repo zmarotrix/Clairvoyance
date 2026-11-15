@@ -162,6 +162,54 @@ function Plates:Refresh()
   end
 end
 
+---/clair plates: what each nameplate on screen looks like to the marks, and why it has one or not.
+function Plates.Report()
+  local seen = 0
+  local function line(text) CV:Print(text) end
+  if not CV.db.plateMarks then line("Quest marks on nameplates are off (Settings, Nameplates).") end
+  for i = 1, 40 do
+    local unit = "nameplate" .. i
+    if Core.Plain(UnitExists, unit) then
+      seen = seen + 1
+      local name = Core.Plain(UnitName, unit)
+      name = (name and not IsSecret(name)) and name or "?"
+      local guid = Core.Plain(UnitGUID, unit)
+      local npc = Plates.npcOf[unit]
+      local why
+      if guid == nil or IsSecret(guid) then why = "its GUID is hidden right now"
+      elseif not npc then why = "not an NPC (" .. tostring(guid):match("^[^-]+") .. ")"
+      else
+        local needs = Plates.Needs(npc)
+        if not needs then why = "npc " .. npc .. ": nothing left to do on it"
+        else
+          local bits = {}
+          for _, kind in ipairs(ORDER) do
+            if needs[kind] then bits[#bits + 1] = KINDS[kind] .. " " .. tostring(needs[kind]) end
+          end
+          local ok, err = pcall(Plates.Update, Plates, unit)
+          local plate = plateOf(unit)
+          local f = plate and Plates.marks[plate]
+          local state
+          if not ok then state = "error: " .. tostring(err)
+          elseif not plate then state = "can't reach its plate"
+          elseif not f then state = "no mark made"
+          else
+            state = string.format("mark %s, visible %s, alpha %.2f, %dx%d", f:IsShown() and "shown" or "hidden",
+              tostring(f:IsVisible()), f:GetEffectiveAlpha() or -1, f:GetWidth() or 0, f:GetHeight() or 0)
+            local g = f.slots[1]
+            if g then
+              state = state .. string.format("; badge %s, icon %s", tostring(g:IsVisible()), tostring(g.icon:GetTexture()))
+            end
+          end
+          why = "npc " .. npc .. ": " .. table.concat(bits, ", ") .. " -> " .. state
+        end
+      end
+      line(unit .. " " .. name .. ": " .. why)
+    end
+  end
+  if seen == 0 then line("No nameplates on screen. Stand near some mobs with their nameplates showing (V).") end
+end
+
 Core:On("NAME_PLATE_UNIT_ADDED", "clairvoyance.plates", function(_, unit) if CV.ready then Plates:Added(unit) end end)
 Core:On("NAME_PLATE_UNIT_REMOVED", "clairvoyance.plates", function(_, unit) Plates:Removed(unit) end)
 -- progress (the tooltips' index rebuilds itself on the next ask)

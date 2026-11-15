@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.17.2 (2026-11-15)
+
+- **/clair plates** lists each nameplate on screen and why it has a quest mark or not: its GUID is hidden, nothing is left to do on it, or the mark is drawn and where.
+
 ## 0.17.1 (2026-11-15)
 
 - **Quest marks on nameplates are easier to read.** Each mark is now a badge: a dark disc with a thin gold ring, a full-colour sword or bag inside, and the count in bold white on its corner. The thin red cross was hard to read against red health bars, and its count was too small. Needs Norgannon Core 1.28.7.

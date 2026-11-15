@@ -70,6 +70,7 @@ Core:NewAddon("clairvoyance", {
         .. (onlyOpenMap and " That's OpenMap's own map features; none of the suite's add-ons touched them."
           or " Toggling the map in combat may fail until you /reload."))
     end, "check whether add-on code has tainted the world map's pins (open the map first)" },
+    plates = { function() CV.Plates.Report() end, "why each nameplate on screen has a quest mark or not" },
     perf = { function(rest) CV.Perf.Command(rest) end, "[seconds | stop | report]: measure Clairvoyance while you play" },
   },
   minimap = {
