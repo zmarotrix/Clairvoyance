@@ -48,6 +48,12 @@ end
 
 CV:Listen("MODEL_UPDATED", "tooltips", function() dirty = true end)
 
+---The objectives an NPC, object or item takes part in: { {questId, objectiveIndex}, ... }.
+function Tips.ObjectivesFor(kind, id)
+  if dirty then rebuild() end
+  return (objectivesOf[kind] or {})[id] or {}
+end
+
 -------------------------------------------------------------------------------------------
 -- Lines
 -------------------------------------------------------------------------------------------

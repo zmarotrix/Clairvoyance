@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.17.0 (2026-11-15)
+
+- **Quest mobs are marked on their nameplates.** A mob you still need to kill for a quest in your log shows a red sword to the right of its health bar, with how many are left. A mob that drops something you need shows a gold bag. A mob that's both shows both. The marks update as you make progress and go away once an objective is done. Turn them off under Settings, Nameplates. Needs Norgannon Core 1.28.6.
+- **The quest you clicked stays selected in the map's quest list.** Clicking a quest's name in the tracker marks its row in the list for as long as the map stays open, instead of only glowing for a few seconds. It also waits a moment for the list to finish laying out, so the mark lands even when the map has just opened.
+
 ## 0.16.4 (2026-11-11)
 
 - **Clicking a quest's name in the tracker shows it in the quest log.** Its row in the log glows for a few seconds, so it's easy to find. With the map already open, clicking the name opens the quest's text, just as clicking it in the log does. It's the game's own click on the quest's row, so the map stays clean.

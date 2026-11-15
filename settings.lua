@@ -112,6 +112,11 @@ CV:OnReady(function()
     function() return CV.db.questMarksOnMinimap end,
     function(on) CV.db.questMarksOnMinimap = on CV.Pins:Rebuild() CV.Pins:RebuildAvailable() end)
 
+  list:Header("Nameplates")
+  list:Toggle("Mark quest mobs", "A sword on mobs you still need to kill for a quest, and a bag on mobs that drop something you need, with how many are left.",
+    function() return CV.db.plateMarks end,
+    function(on) CV.db.plateMarks = on CV.Plates:Refresh() end)
+
   list:Header("Bags")
   list:Toggle("Mark quest items", "A gold \"?\" on items a quest in your log needs, and a silver diamond on items a quest you could take needs. Items that start a quest keep the game's own \"!\".",
     function() return CV.db.bagMarks end,

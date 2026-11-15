@@ -1144,7 +1144,7 @@ end
 
 -------------------------------------------------------------------------------------------
 -- Every quest's name is a link to the map: click it and the map opens with the quest log, that
--- quest's dots pulse (or chat says which zone it's in) and its row in the log glows. With the map
+-- quest's dots pulse (or chat says which zone it's in) and its row in the log is marked selected. With the map
 -- already open, the click goes to the quest's own row in the log instead, so the game opens the
 -- quest's text exactly as if you had clicked it there (add-on code calling the log's functions
 -- taints the map: see CV:ShowOnMap). It's a secure click, one per row, laid over the name on the
@@ -1165,42 +1165,52 @@ function Tracker.LogRow(questId)
   if ok and type(row) == "table" and row.Click then return row end
 end
 
--- a soft glow laid over the quest's row in the log: our own frame on top of theirs, never a
--- change to theirs. It fades out, and goes as soon as the row does (the log scrolls or closes).
-local GLOW_TIME = 3
+-- the quest's row in the log marked as selected: our own frame laid over theirs, never a change
+-- to theirs. It stays while the map is open and goes when the row does (the log scrolls, closes,
+-- or shows another quest there).
 local glow
+local function glowFrame()
+  if glow then return glow end
+  glow = CreateFrame("Frame", nil, UIParent)
+  glow:EnableMouse(false)
+  glow.fill = glow:CreateTexture(nil, "OVERLAY")
+  glow.fill:SetAllPoints()
+  glow.fill:SetColorTexture(1, .82, .2, .18)
+  glow.edge = glow:CreateTexture(nil, "OVERLAY")
+  glow.edge:SetColorTexture(1, .82, .2, .9)
+  glow.edge:SetWidth(3)
+  glow.edge:SetPoint("TOPLEFT")
+  glow.edge:SetPoint("BOTTOMLEFT")
+  glow:SetScript("OnUpdate", function(self)
+    local r = self.row
+    if not (r and r:IsVisible() and (r.questID == nil or r.questID == self.questId)) then
+      self:Hide() self.row = nil
+    end
+  end)
+  return glow
+end
+
+---Marks the quest's row in the log as selected; false when the log hasn't laid it out.
 function Tracker.GlowLogRow(questId)
   local row = Tracker.LogRow(questId)
   if not (row and row:IsVisible()) then return false end
-  if not glow then
-    glow = CreateFrame("Frame", nil, UIParent)
-    glow:EnableMouse(false)
-    glow.fill = glow:CreateTexture(nil, "OVERLAY")
-    glow.fill:SetAllPoints()
-    glow.fill:SetColorTexture(1, .82, .2, .22)
-    glow.edge = glow:CreateTexture(nil, "OVERLAY")
-    glow.edge:SetColorTexture(1, .82, .2, .9)
-    glow.edge:SetWidth(3)
-    glow.edge:SetPoint("TOPLEFT")
-    glow.edge:SetPoint("BOTTOMLEFT")
-    glow:SetScript("OnUpdate", function(self, elapsed)
-      self.left = self.left - elapsed
-      local r = self.row
-      if self.left <= 0 or not (r and r:IsVisible() and (r.questID == nil or r.questID == self.questId)) then
-        self:Hide() self.row = nil return
-      end
-      self:SetAlpha(math.min(1, self.left / 1))
-    end)
-  end
-  glow.row, glow.questId, glow.left = row, questId, GLOW_TIME
-  glow:SetFrameStrata(row:GetFrameStrata())
-  glow:SetFrameLevel(row:GetFrameLevel() + 5)
-  glow:ClearAllPoints()
-  glow:SetAllPoints(row)
-  glow:SetAlpha(1)
-  glow:Show()
+  local g = glowFrame()
+  g.row, g.questId = row, questId
+  g:SetFrameStrata(row:GetFrameStrata())
+  g:SetFrameLevel(row:GetFrameLevel() + 5)
+  g:ClearAllPoints()
+  g:SetAllPoints(row)
+  g:Show()
   return true
 end
+
+-- the log may lay its rows out a frame or two after the map opens: try for a moment
+local GLOW_TRIES = 10
+local function glowSoon(questId, tries)
+  if Tracker.GlowLogRow(questId) or (tries or 0) >= GLOW_TRIES then return end
+  C_Timer.After(0.05, function() glowSoon(questId, (tries or 0) + 1) end)
+end
+Tracker.GlowSoon = glowSoon
 
 local function titleLink(i)
   if titleLinks[i] or InCombatLockdown() then return titleLinks[i] end
@@ -1222,6 +1232,8 @@ local function titleLink(i)
   -- game shows its text), else nothing (the game's button would close the map again).
   b:SetScript("PreClick", function(self)
     if InCombatLockdown() then return end
+    local m = self.row and self.row.m
+    if m and C_QuestLog and C_QuestLog.SetSelectedQuest then pcall(C_QuestLog.SetSelectedQuest, m.id) end
     if not mapShown() then
       self:SetAttribute("type1", "click")
       self:SetAttribute("clickbutton", mapDelegate())
@@ -1238,7 +1250,7 @@ local function titleLink(i)
       local m = row.m
       C_Timer.After(0, function()
         showOnMap(m)
-        Tracker.GlowLogRow(m.id)
+        glowSoon(m.id)
       end)
     else
       local click = row:GetScript("OnClick")
