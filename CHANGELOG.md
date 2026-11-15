@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.17.1 (2026-11-15)
+
+- **Quest marks on nameplates are easier to read.** Each mark is now a badge: a dark disc with a thin gold ring, a full-colour sword or bag inside, and the count in bold white on its corner. The thin red cross was hard to read against red health bars, and its count was too small. Needs Norgannon Core 1.28.7.
+
 ## 0.17.0 (2026-11-15)
 
 - **Quest mobs are marked on their nameplates.** A mob you still need to kill for a quest in your log shows a red sword to the right of its health bar, with how many are left. A mob that drops something you need shows a gold bag. A mob that's both shows both. The marks update as you make progress and go away once an objective is done. Turn them off under Settings, Nameplates. Needs Norgannon Core 1.28.6.
