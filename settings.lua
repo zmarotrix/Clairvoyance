@@ -65,8 +65,10 @@ CV:OnReady(function()
     end, "%.0f%%", 100)
 
   list:Header("Automation")
-  list:Toggle("Accept quests", "Accepts quests you're offered, except grey ones (while those are hidden) and ones you hid on the map. Hold Shift to pause any automation.",
+  list:Toggle("Accept quests", "Accepts quests you're offered, except grey ones and ones you hid on the map. Hold Shift to pause any automation.",
     function() return CV.db.auto.accept end, function(on) CV.db.auto.accept = on end)
+  list:Toggle("Accept grey quests too", "Also accepts quests far below your level. Off, they're left for you to take by hand.",
+    function() return CV.db.auto.acceptGrey == true end, function(on) CV.db.auto.acceptGrey = on end)
   list:Toggle("Turn in quests", "Hands in finished quests and takes the reward when there's only one. Never when the turn-in costs money.",
     function() return CV.db.auto.turnin end, function(on) CV.db.auto.turnin = on end)
   list:Toggle("Mark the best-selling reward", "With a choice of rewards, a gold coin marks the one worth the most at a vendor. "

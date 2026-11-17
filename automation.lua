@@ -1,8 +1,8 @@
 -- Automation, off by default (the welcome presets or the settings turn it on), each part on its
 -- own switch (ClairvoyanceDB.auto):
 --
---   accept   accept quests offered to you, unless they're grey (low level, while low-level quests
---            are hidden) or you hid them on the map; never when your log is full
+--   accept   accept quests offered to you, unless they're grey (far below your level; acceptGrey
+--            takes those too) or you hid them on the map; never when your log is full
 --   turnin   hand in finished quests; with one reward (or none) take it. Never when the turn-in
 --            costs money
 --   gossip   skip the chatter: at an NPC with quests, go straight to a finished quest (turn-in) or
@@ -36,17 +36,19 @@ local function logFull()
   return count >= max
 end
 
----Whether auto-accept may take this quest: not grey (unless grey quests are shown), not hidden
----on the map by you. Quests NorgannonDB doesn't know are taken.
+---Whether auto-accept may take this quest: not grey (unless you turned on accepting grey quests),
+---not hidden on the map by you. Quests NorgannonDB doesn't know are taken unless the game calls
+---them grey. Showing grey quests on the map doesn't change this: seeing them isn't wanting them.
 function Auto.Acceptable(questId, trivialFromGame)
-  if not questId or questId == 0 then return trivialFromGame ~= true or CV.db.showTrivial end
+  local grey = CV.db.auto.acceptGrey == true
+  if not questId or questId == 0 then return trivialFromGame ~= true or grey end
   if CV:IsHiddenOnMap(questId) then return false end
   local q = DB:Get("quests", questId)
   local trivial = trivialFromGame
   if trivial == nil and q and q.level and not CV.Availability.Levelless(q) then
     trivial = CV.Availability.QuestColor(questId, q.level) == Core.UI.C.trivial
   end
-  if trivial and not CV.db.showTrivial then return false end
+  if trivial and not grey then return false end
   return true
 end
 
