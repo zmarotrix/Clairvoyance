@@ -145,22 +145,41 @@ function Tips:AddLines(tt, kind, id, seen, game)
       seen["s" .. start] = true
       line("Starts a quest: " .. (Core.DB:Name("quests", start) or ("Quest " .. start)), C.gold)
     end
-    -- quests you could take that want it: what the silver mark in the bags means
-    local could, shown = CV.BagMarks.CouldTake(id), 0
-    for _, questId in ipairs(could) do
+    -- quests you could take that want it: what the silver mark in the bags means. One line, the rest
+    -- (and the key that hides the mark) while Shift is held. Quests with the same name and level (a
+    -- repeatable offered by several givers) count once.
+    local names, seenName = {}, {}
+    for _, questId in ipairs(CV.BagMarks.CouldTake(id)) do
       if not seen["s" .. questId] and not seen["c" .. questId] then
         seen["c" .. questId] = true
-        shown = shown + 1
-        if shown <= MAX_COULD then
-          local q = DB:Get("quests", questId)
-          local level = q and q.level and q.level > 0 and (" (" .. q.level .. ")") or ""
-          line("For a quest you could take: " .. (Core.DB:Name("quests", questId) or ("Quest " .. questId)) .. level, CV.BagMarks.SILVER)
+        local q = DB:Get("quests", questId)
+        local level = q and q.level and q.level > 0 and (" (" .. q.level .. ")") or ""
+        local name = (Core.DB:Name("quests", questId) or ("Quest " .. questId)) .. level
+        if not seenName[name] then
+          seenName[name] = true
+          names[#names + 1] = name
         end
       end
     end
-    if shown > MAX_COULD then line(string.format("   and %d more", shown - MAX_COULD), CV.BagMarks.SILVER) end
     local hint = CV.BagMarks.TooltipHint(id)
-    if hint then line(hint, C.faint) end
+    if #names > 0 then
+      local Tip = Core.Tooltip
+      local detail = Tip and Tip.Detail()
+      local first = "For a quest you could take: " .. names[1]
+      if #names > 1 and not detail then first = first .. string.format(", and %d more", #names - 1) end
+      if Tip then
+        Tip.Head(tt, first, CV.BagMarks.SILVER, #names > 1 or hint ~= nil)
+        added = added + 1
+      else
+        line(first, CV.BagMarks.SILVER)
+      end
+      if detail then
+        for i = 2, math.min(#names, MAX_COULD) do line("   " .. names[i], CV.BagMarks.SILVER) end
+        if #names > MAX_COULD then line(string.format("   and %d more", #names - MAX_COULD), CV.BagMarks.SILVER) end
+      end
+    end
+    -- the key that hides the mark: only with Shift, except on a hidden mark (so it can be shown again)
+    if hint and (not Core.Tooltip or Core.Tooltip.Detail() or CV.BagMarks.IsHidden(id)) then line(hint, C.faint) end
   end
   return added
 end
