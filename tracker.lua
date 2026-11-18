@@ -372,7 +372,7 @@ end
 ---Everyone in your group on this quest: you first, then each member's progress, whether they
 ---don't have the quest, or that their add-ons don't share progress. Nothing when you're alone.
 function Tracker.GroupLines(m)
-  local members = Core.Comms and Core.Comms:Members() or {}
+  local members = Core.Comms and Core.Comms.Members and Core.Comms:Members() or {}
   if #members == 0 then return nil end
   local accent = UI.Accent("clairvoyance")
   local lines, silent = {}, false
