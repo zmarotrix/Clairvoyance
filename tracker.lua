@@ -348,6 +348,56 @@ function Tracker.UnknownNote(m)
   return lines
 end
 
+-- One player's progress on a quest, objective by objective in the quest's order ("3/10 · 1/4"),
+-- or a word when that says more. get(o) -> { fulfilled, required, finished } or nil.
+local function progressLine(m, get, complete)
+  if complete then return "Ready to turn in", C.gold end
+  local parts, any = {}, false
+  for _, o in ipairs(m.objectives) do
+    local p = get(o)
+    if p then
+      any = true
+      parts[#parts + 1] = p.finished and "done" or ((p.fulfilled or 0) .. "/" .. (p.required or 1))
+    end
+  end
+  if not any then return "On this quest", C.text end
+  return table.concat(parts, " · "), C.text
+end
+
+local function yours(o)
+  if o.current and o.required then return { fulfilled = o.current, required = o.required, finished = o.finished } end
+  return { finished = o.finished, fulfilled = o.finished and 1 or 0, required = 1 }
+end
+
+---Everyone in your group on this quest: you first, then each member's progress, whether they
+---don't have the quest, or that their add-ons don't share progress. Nothing when you're alone.
+function Tracker.GroupLines(m)
+  local members = Core.Comms and Core.Comms:Members() or {}
+  if #members == 0 then return nil end
+  local accent = UI.Accent("clairvoyance")
+  local lines, silent = {}, false
+  local text, colour = progressLine(m, yours, m.complete == true)
+  lines[1] = { "You", text, C.text, colour }
+  for _, member in ipairs(members) do
+    local objectives = (m.party or {})[member.key]
+    if objectives then
+      local all = #m.objectives > 0
+      for _, o in ipairs(m.objectives) do
+        local p = objectives[o.index]
+        if not (p and p.finished) then all = false end
+      end
+      text, colour = progressLine(m, function(o) return objectives[o.index] end, all)
+      lines[#lines + 1] = { member.name, text, accent, colour }
+    elseif member.shares then
+      lines[#lines + 1] = { member.name, "Not on this quest", C.muted, C.muted }
+    else
+      silent = true
+      lines[#lines + 1] = { member.name, "Not shared", C.faint, C.faint }
+    end
+  end
+  return lines, silent
+end
+
 function Tracker:ShowTooltip(row, m)
   GameTooltip:SetOwner(row, "ANCHOR_LEFT")
   local c = questColor(m.id)
@@ -356,12 +406,16 @@ function Tracker:ShowTooltip(row, m)
   for _, o in ipairs(m.objectives) do
     local done = o.finished
     GameTooltip:AddLine(o.text or o.name or "?", done and .5 or 1, done and .5 or 1, done and .5 or 1)
-    for player, objectives in pairs(m.party or {}) do
-      local p = objectives[o.index]
-      if p then
-        local a = UI.Accent("clairvoyance")
-        GameTooltip:AddLine("   " .. player .. ": " .. (p.fulfilled or 0) .. "/" .. (p.required or 1), a[1], a[2], a[3])
-      end
+  end
+  local group, silent = Tracker.GroupLines(m)
+  if group then
+    GameTooltip:AddLine(" ")
+    GameTooltip:AddLine("Your group", C.gold[1], C.gold[2], C.gold[3])
+    for _, l in ipairs(group) do
+      GameTooltip:AddDoubleLine(l[1], l[2], l[3][1], l[3][2], l[3][3], l[4][1], l[4][2], l[4][3])
+    end
+    if silent then
+      GameTooltip:AddLine("Progress shows for members who use Clairvoyance or Questie.", C.faint[1], C.faint[2], C.faint[3], true)
     end
   end
   for _, line in ipairs(Tracker.UnknownNote(m) or {}) do
