@@ -162,11 +162,111 @@ local function sync()
   layout()
 end
 
+-------------------------------------------------------------------------------------------
+-- "Pick up X from Y in Zone": after you click a quest to pick up in the tracker, opening your map
+-- on any other zone shows where its giver is, since add-ons can't turn Blizzard's map there for
+-- you (that taints its quest pins; Core.Map:Reveal). It goes once the map reaches that zone (the
+-- giver's eye pulses there), when you close it with its x, take the quest or after HINT_FOR.
+-------------------------------------------------------------------------------------------
+
+local HINT_FOR = 300          -- seconds the hint lasts after the click
+local REVEAL_WAIT = 110       -- after about this long Core's own Reveal has given up: pulse it here
+local HINT_EVERY = .2
+
+local hint, hintFrame
+
+local function hintLive()
+  if not hint then return false end
+  if GetTime() - hint.at > HINT_FOR then hint = nil return false end
+  -- still to pick up? (taken or handed in: the tracker row went, so does the hint)
+  if not hint.key then return true end
+  for _, p in ipairs(CV.Extras:TrackedPins(hint.key).pickups or {}) do
+    if p.step == hint.step then return true end
+  end
+  hint = nil
+  return false
+end
+
+local function updateHint()
+  local f = hintFrame
+  if not hintLive() then f.pill:Hide() return end
+  if WorldMapFrame:GetMapID() == hint.uiMap then
+    -- you're there: its eye pulses (Core's Reveal does, unless it has stopped waiting)
+    if GetTime() - hint.at > REVEAL_WAIT then Core.Map:Pulse(hint.highlight) end
+    hint = nil
+    f.pill:Hide()
+    return
+  end
+  if not f.pill:IsShown() or f.pill.for_ ~= hint then
+    f.pill.for_ = hint
+    f.pill.text:SetText(string.format("Pick up %s from %s in %s (%.1f, %.1f)", hint.name, hint.giver, hint.zone, hint.x, hint.y))
+    f.pill:SetWidth(math.floor(f.pill.text:GetStringWidth() + 64))
+    f.pill:Show()
+  end
+end
+
+local function buildHint()
+  local container = WorldMapFrame.ScrollContainer or WorldMapFrame
+  -- always shown with the map, so it checks the map's zone while the map is open (and only then)
+  hintFrame = CreateFrame("Frame", nil, WorldMapFrame)
+  hintFrame:SetSize(1, 1)
+  hintFrame:SetPoint("TOP", container, "TOP", 0, -10)
+  local pill = CreateFrame("Button", "ClairvoyancePickupHint", hintFrame)
+  pill:SetHeight(28)
+  pill:SetPoint("TOP", hintFrame, "TOP", 0, 0)
+  pill:SetFrameStrata(WorldMapFrame:GetFrameStrata() or "HIGH")
+  pill:SetFrameLevel(WorldMapFrame:GetFrameLevel() + 2040)
+  pill.bg = UI.Round(pill, "BACKGROUND", 0, 14)
+  pill.bg:SetColor({ .03, .025, .02 }, .9)
+  pill.ring = UI.Round(pill, "BORDER", 0, 14, "line")
+  pill.ring:SetColor(UI.Accent("clairvoyance"), .7)
+  pill.eye = UI.Icon(pill, CV.Extras.PICKUP_ICON, 20)
+  pill.eye:SetPoint("LEFT", 8, 0)
+  pill.text = UI.Text(pill, "body", 13, C.text)
+  pill.text:SetPoint("LEFT", pill.eye, "RIGHT", 6, 0)
+  pill.close = CreateFrame("Button", nil, pill)
+  pill.close:SetSize(18, 18)
+  pill.close:SetPoint("RIGHT", -6, 0)
+  pill.close.icon = UI.Icon(pill.close, "close", 9, C.muted)
+  pill.close.icon:SetPoint("CENTER")
+  pill.close:SetScript("OnClick", function() hint = nil pill:Hide() end)
+  pill:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
+    GameTooltip:AddLine("Pick up: " .. (hint and hint.name or ""), 1, 1, 1)
+    GameTooltip:AddLine("Go to " .. (hint and hint.zone or "its zone") .. " on this map: the giver's eye pulses there.",
+      C.muted[1], C.muted[2], C.muted[3], true)
+    GameTooltip:Show()
+  end)
+  pill:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  pill:Hide()
+  hintFrame.pill = pill
+  local since = HINT_EVERY
+  hintFrame:SetScript("OnUpdate", function(_, dt)
+    since = since + dt
+    if since < HINT_EVERY then return end
+    since = 0
+    updateHint()
+  end)
+end
+
+---Remembers the quest to pick up you just clicked in the tracker, for the world map's hint:
+---{ key, step, name, giver, uiMap, zone, x, y, highlight }. nil forgets it.
+function CV:SetPickupHint(info)
+  hint = info
+  if hint then hint.at = GetTime() end
+  if hintFrame then
+    hintFrame.pill:Hide()
+    if WorldMapFrame:IsShown() then updateHint() end
+  end
+end
+function CV:PickupHint() return hintLive() and hint or nil, hintFrame end
+
 CV:OnReady(function()
   build()
   addFindChip()
   addHiddenChip()
   sync()
+  buildHint()
 end)
 CV:Listen("FILTERS_CHANGED", "mapchips", function() if bar then sync() end end)
 CV:Listen("HIDDEN_CHANGED", "mapchips", function() if bar then sync() end end)

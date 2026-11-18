@@ -325,8 +325,9 @@ local function newRow()
 end
 
 ---Whether NorgannonDB lacks this quest's zone (Forever's own quests, mostly): the tracker groups
----it by the log's header then, and marks it.
-function Tracker.Unknown(m) return m.zone == nil end
+---it by the log's header then, and marks it. A class or profession quest is filed under its
+---category instead of a zone, and is known.
+function Tracker.Unknown(m) return m.zone == nil and m.sort == nil end
 
 ---The tooltip's lines about a quest NorgannonDB doesn't place: { { text, colour }, ... }, or nil.
 ---With the Collector running: share what it notes; without it: what the Collector is.
@@ -695,6 +696,76 @@ local function groupHeader(i)
   return h
 end
 
+-- A dungeon's quests tracked from Oracle (CV:TrackQuests) get their own section at the top: its
+-- quests in your log (and the chain steps before them) as cards, then a row for each quest still
+-- to pick up. Click the heading to fold it; right-click for the list's menu.
+local sectionHeads = {}
+Tracker.sectionHeads = sectionHeads
+
+local function foldedSections()
+  local t = CV.char.tracker
+  if type(t.collapsedSections) ~= "table" then t.collapsedSections = {} end
+  return t.collapsedSections
+end
+
+local function sectionHead(i)
+  local h = sectionHeads[i]
+  if not h then
+    h = CreateFrame("Button", nil, f.content)
+    h:SetSize(WIDTH, 22)
+    h:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+    h.edge = h:CreateTexture(nil, "ARTWORK")
+    h.edge:SetSize(3, 14)
+    h.edge:SetPoint("LEFT", 1, 0)
+    h.edge:SetColorTexture(1, 1, 1, 1)
+    h.chev = UI.Icon(h, "chevron", 10, C.goldSoft)
+    h.chev:SetPoint("LEFT", 8, 0)
+    h.text = UI.Text(h, "title", 13, C.goldSoft)
+    h.text:SetPoint("LEFT", h.chev, "RIGHT", 5, 0)
+    h.remove = CreateFrame("Button", nil, h)
+    h.remove:SetSize(16, 16)
+    h.remove:SetPoint("RIGHT", -6, 0)
+    h.remove.icon = UI.Icon(h.remove, "close", 8, C.faint)
+    h.remove.icon:SetPoint("CENTER")
+    h.remove:SetScript("OnClick", function(self) CV:Untrack(self:GetParent().key) end)
+    h.detail = UI.Text(h, "body", 12, C.faint)
+    h.detail:SetPoint("RIGHT", h.remove, "LEFT", -4, 0)
+    h.detail:SetJustifyH("RIGHT")
+    h:SetScript("OnClick", function(self, button)
+      if button == "RightButton" then CV.Extras:TrackedMenu(self, self.key) return end
+      local folded = foldedSections()
+      folded[self.key] = not folded[self.key] or nil
+      Tracker:Layout()
+    end)
+    h:SetScript("OnEnter", function(self)
+      self.text:SetTextColor(C.gold[1], C.gold[2], C.gold[3])
+      Core.Map:SetHighlight("track:" .. self.key)
+      GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+      GameTooltip:AddLine(self.name or "", 1, 1, 1)
+      GameTooltip:AddLine("Its quests in your log, then where to pick up the rest.", C.muted[1], C.muted[2], C.muted[3])
+      GameTooltip:AddLine("Click: fold · Right-click: colour, stop tracking", C.faint[1], C.faint[2], C.faint[3])
+      GameTooltip:Show()
+    end)
+    h:SetScript("OnLeave", function(self)
+      self.text:SetTextColor(C.goldSoft[1], C.goldSoft[2], C.goldSoft[3])
+      Core.Map:SetHighlight(nil)
+      GameTooltip:Hide()
+    end)
+    sectionHeads[i] = h
+  end
+  return h
+end
+
+---A section heading's count: "1 in your log · 2 to pick up", or why it's empty.
+function Tracker.SectionDetail(inLog, pins)
+  local parts = {}
+  if inLog > 0 then parts[#parts + 1] = inLog .. " in your log" end
+  local left = pins and pins.pickups and #pins.pickups or 0
+  if left > 0 then parts[#parts + 1] = left .. " to pick up" end
+  if #parts > 0 then return table.concat(parts, " · ") end
+  return "nothing to pick up yet"
+end
+
 ---Whether a quest shows compact: its own choice (clicked), else the tracker's default view.
 function Tracker.IsCompact(m)
   local own = CV.char.tracker.questView[m.id]
@@ -780,6 +851,20 @@ function Tracker:Draw(quests)
   f.tools:SetShown(not collapsed)
   f.scroll:SetShown(not collapsed)
   for _, h in ipairs(groupHeaders) do h:Hide() end
+  for _, h in ipairs(sectionHeads) do h:Hide() end
+  local X = CV.Extras
+  if X then X:BeginDraw() end
+  -- a tracked dungeon's quests leave the main list for its section
+  local sections, bySection = X and X.Sections() or {}, {}
+  if #sections > 0 then
+    local rest = {}
+    for _, e in ipairs(sections) do bySection[e.key] = {} end
+    for _, m in ipairs(quests) do
+      local key = X.SectionOf(m.id)
+      if key and bySection[key] then table.insert(bySection[key], m) else rest[#rest + 1] = m end
+    end
+    quests = rest
+  end
   local byZone = CV.char.tracker.sort == "zone"
   local counts = {}
   if byZone then
@@ -791,6 +876,38 @@ function Tracker:Draw(quests)
   local compact = CV.char.tracker.view == "compact"
   local gap = compact and 2 or 3
   local y, zone, g, used = 0, nil, 0, 0
+  local function card(m)
+    used = used + 1
+    local row = rows[used] or newRow()
+    rows[used] = row
+    local height = fillRow(row, m)
+    Tracker.PaintCard(row, false)
+    row:ClearAllPoints()
+    row:SetPoint("TOPLEFT", f.content, "TOPLEFT", 0, -y)
+    row:Show()
+    y = y + height + gap
+  end
+  for i, e in ipairs(sections) do
+    local h = sectionHead(i)
+    local pins = X:TrackedPins(e.key)
+    local folded = foldedSections()[e.key]
+    h.key, h.name = e.key, e.name
+    h.text:SetText(e.name)
+    h.detail:SetText(Tracker.SectionDetail(#bySection[e.key], pins))
+    h.chev:SetRotation(folded and math.pi / 2 or 0)
+    local c = X.ColorOf(e.key)
+    h.edge:SetVertexColor(c[1], c[2], c[3])
+    h.edge:SetShown(CV.char.tracker.edges ~= false)
+    h:ClearAllPoints()
+    h:SetPoint("TOPLEFT", f.content, "TOPLEFT", 0, -y)
+    h:Show()
+    y = y + 24
+    if not folded then
+      for _, m in ipairs(bySection[e.key]) do card(m) end
+      y = X:DrawPickups(f.content, y, WIDTH, e.key)
+    end
+    y = y + 6
+  end
   for _, m in ipairs(quests) do
     local z = byZone and (areaName(m.zone) or m.header or "Other")
     if byZone and z ~= zone then
@@ -804,17 +921,7 @@ function Tracker:Draw(quests)
       h:Show()
       y = y + 22
     end
-    if not (byZone and CV.char.tracker.collapsedZones[z]) then
-      used = used + 1
-      local row = rows[used] or newRow()
-      rows[used] = row
-      local height = fillRow(row, m)
-      Tracker.PaintCard(row, false)
-      row:ClearAllPoints()
-      row:SetPoint("TOPLEFT", f.content, "TOPLEFT", 0, -y)
-      row:Show()
-      y = y + height + gap
-    end
+    if not (byZone and CV.char.tracker.collapsedZones[z]) then card(m) end
   end
   for i = used + 1, #rows do
     rows[i]:Hide()

@@ -27,7 +27,7 @@ function Availability.Levelless(q)
 end
 CV.Availability = Availability
 
-local REPEATABLE, EVENT = 1, 2   -- specialFlags bits
+local REPEATABLE = 1   -- specialFlags bit (2 is "completes by a scripted event": escorts, exploring; not seasonal)
 
 -- race and class masks: 0 means everyone (NorgannonDB.HasFlag)
 local function hasFlag(mask, flag) return DB.HasFlag(mask, flag) end
@@ -100,7 +100,7 @@ function Availability.Check(id, q, ignoreOffers)
   local raceMask, classMask = playerMasks()
   if raceMask and q.races and q.races ~= 0 and not hasFlag(q.races, raceMask) then return false, "race" end
   if classMask and q.classes and q.classes ~= 0 and not hasFlag(q.classes, classMask) then return false, "class" end
-  if q.event or flagSet(q.specialFlags, EVENT) then return false, "seasonal" end
+  if q.event then return false, "seasonal" end
 
   local pre = q.prerequisites
   if pre then

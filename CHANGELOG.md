@@ -1,5 +1,47 @@
 # Changelog
 
+## 0.19.0 (2026-11-16)
+
+- **A quest to pick up for a dungeon** (Oracle's Track pickups): clicking its row in the tracker opens a small map
+  beside it, with the giver's eye pulsing on its zone, the coordinates and where you are when you're in that zone.
+  Click the row again or press Escape to close it. The arrow points at the giver when it's on your continent, and
+  its eye also pulses on your world map when you next open it on that zone. Hovering a row lights just its own giver.
+- If you open your world map on another zone after clicking such a row, a strip at the top of the map says where to
+  go: "Pick up Deviate Hides from Nalpak in The Barrens (46.0, 35.7)". It goes when you reach that zone on the map,
+  where the giver's eye pulses, when you close it with its x, take the quest or after five minutes. Add-ons can't
+  turn Blizzard's map to that zone for you without breaking its quest pins.
+- A dungeon quest that starts from an item (The Essence of Eranikus) now shows who drops the item. The row says
+  "from Shade of Eranikus", and its eye sits on the dungeon's entrance when the dropper is only inside. Givers who
+  stand only inside a dungeon get an eye on its entrance too. Before, these said "isn't known yet", once per click.
+- **A dungeon's quests get their own section in the tracker** (Oracle's "Track these quests"). It sits at the top,
+  named for the instance, and holds the instance's quests in your log, including the earlier steps of their chains,
+  so they aren't mixed in with the rest. Below them is a row for each quest still to pick up, with the eye from the
+  map, what it comes before and an arrow to its nearest giver.
+- Click the section's heading to fold it; right-click it for its colour and to stop tracking.
+- Once every quest on the list is handed in, the section leaves the tracker on its own.
+- Class and profession quests no longer show the 'NorgannonDB doesn't know this quest' mark; they're filed under
+  their class or profession instead of a zone.
+- **Hover a tracked quest to see your whole group on it.** Under the objectives, "Your group" lists you and each
+  member: their count for each objective, "Ready to turn in", "Not on this quest", or "Not shared" for members
+  whose add-ons don't share progress (it works with Clairvoyance and Questie). It replaces the small lines that
+  used to sit under each objective.
+- **Auto-accept leaves grey quests alone**, even while low-level quests show on the map. A new switch under
+  Automation, "Accept grey quests too", takes them as well; it's off unless you turn it on.
+
+## 0.18.1 (2026-11-15)
+
+- A dungeon's pickups on the map are Clairvoyance's eye with a soft teal glow instead of a yellow !, so they stand
+  out from the other quest marks. They sit above every other mark and are slightly see-through, so the marks under
+  them still show.
+
+## 0.18.0 (2026-11-15)
+
+- **A dungeon's pickups on the map** (Oracle's "Show all on the map"): a ! on each quest's giver, or on the giver
+  of the first quest before it you can take now. The tracker lists it under Tracking with how many are left to pick
+  up and the distance to the nearest; each one leaves the map as you take it, and the next step of a chain comes on.
+- Fixed: escort and exploring quests (The Forgotten Pools, The Defias Brotherhood, The Fargodeep Mine and about
+  170 more) were treated as seasonal and never shown as available. Only world-event quests are seasonal now.
+
 ## 0.17.3 (2026-11-15)
 
 - **Nameplate quest marks are smaller and sit left of the health bar**, with your progress beside them (3/10) instead of how many are left. Two quests wanting the same mob add up.

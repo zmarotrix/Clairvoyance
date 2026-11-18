@@ -39,6 +39,11 @@ local NAMED_LOOT_SOURCES = 5      -- an item dropped by at most this many NPCs i
 local RARE_ALERT_AGAIN = 300      -- seconds before the same rare is announced again
 local RARE_ICON = "Interface\\TargetingFrame\\UI-TargetingFrame-Skull"
 local NODE_ICON = UI.TEX.circle
+-- a dungeon's pickups: Clairvoyance's eye with a soft glow, see-through, drawn above every other
+-- mark (layer 9; turn-ins are 5) so what's under it still shows. Its own colours: never tinted.
+local PICKUP_ICON = "Interface\\AddOns\\Clairvoyance\\media\\pickup"
+local WHITE = { 1, 1, 1, 1 }
+Extras.PICKUP_ICON = PICKUP_ICON
 
 Extras.VIOLET = VIOLET
 
@@ -77,7 +82,7 @@ local function markIcon(tex, category, tracked, color)
 end
 Extras.MarkIcon = markIcon
 
-local KIND_LABEL = { npcs = "NPC", objects = "Object", items = "Item", category = "Service" }
+local KIND_LABEL = { npcs = "NPC", objects = "Object", items = "Item", category = "Service", quests = "Where to pick up these quests" }
 
 -------------------------------------------------------------------------------------------
 -- Helpers
@@ -140,6 +145,50 @@ local function nearestOf(pins, filter)
 end
 Extras.NearestOf = nearestOf
 
+-- the outside entrance of the instance at area (a dungeon's own area id): entrance, instance name
+local function instanceEntrance(area)
+  local key = Core.DB:InstancesAt(area)[1]
+  local inst = key and Core.DB:Instance(key)
+  local e = inst and inst.entrance
+  if e and e.area and e.x and e.y then return e, Core.DB:InstanceName(key) end
+end
+
+---Pins on every spawn of an NPC or object, like spawnPins (shared); one that's only inside an
+---instance (no outdoor spot) gets a pin on that instance's entrance, titled "Name (Instance)".
+local function placePins(list, kind, id, spec)
+  spawnPins(list, kind, id, spec, nil, true)
+  local record = DB:Get(kind, id)
+  for area, points in pairs(record and record.spawns or {}) do
+    local outside = false
+    for _, p in ipairs(points) do if p[1] and p[1] >= 0 then outside = true end end
+    local e, inst
+    if not outside then e, inst = instanceEntrance(area) end
+    if e then
+      if not spec.__meta then spec.__meta = { __index = spec } end
+      list[#list + 1] = inherit({ area = e.area, x = e.x, y = e.y, kind = kind, id = id, inside = inst,
+        title = (spec.title or Core.DB:Name(kind, id) or "?") .. " (" .. inst .. ")" }, spec)
+    end
+  end
+end
+
+local DROPPERS_MAX = 6      -- a quest item's droppers shown: its likeliest few
+---Who drops an item, likeliest first: { { kind, id, chance }, ... }, those within a third of the best.
+function Extras.ItemDroppers(item)
+  local rec = DB:Get("items", item)
+  local out = {}
+  for _, kind in ipairs({ "npcs", "objects" }) do
+    for id, chance in pairs(rec and rec.drops and rec.drops[kind] or {}) do
+      out[#out + 1] = { kind = kind, id = id, chance = tonumber(chance) or 0 }
+    end
+  end
+  table.sort(out, function(a, b) if a.chance ~= b.chance then return a.chance > b.chance end return a.id < b.id end)
+  local best = out[1] and out[1].chance or 0
+  for i = #out, 1, -1 do
+    if i > DROPPERS_MAX or out[i].chance < best / 3 then table.remove(out, i) end
+  end
+  return out
+end
+
 local function pointArrow(near, title)
   if not near then return false end
   Core.Arrow:SetTarget({ area = near.pin.area, x = near.pin.x, y = near.pin.y, owner = "clairvoyance", title = title or near.pin.title })
@@ -195,6 +244,84 @@ function CV:Track(kind, id, name)
   return true
 end
 
+---Tracks where to pick up a list of quests (an instance's, from Oracle): each quest's giver, or
+---the giver of the first quest before it you can take now. They leave the map as you take them.
+---Tracking the same key again stops it. Returns true when tracked.
+function CV:TrackQuests(key, name, ids)
+  if not key or type(ids) ~= "table" then return false end
+  local entry = { key = "quests:" .. key, kind = "quests", ids = ids, name = name or key }
+  if self:IsTracked(entry.key) then
+    self:Untrack(entry.key)
+    return false
+  end
+  table.insert(self.char.tracked, entry)
+  if not self.db.filters.tracking then
+    self.db.filters.tracking = true
+    self:Send("FILTERS_CHANGED", "tracking")
+  end
+  Extras:RebuildTracking()
+  return true
+end
+
+---The quest to pick up now on the way to this one: the quest itself when you can take it, else
+---the first quest before it you can (DungeonJournal's lead-in, then its prerequisites). nil when
+---it's done, in your log, or nothing on the way can be taken yet.
+function Extras.NextPickup(id, seen)
+  seen = seen or {}
+  if seen[id] then return nil end
+  seen[id] = true
+  local P = Core.Player
+  if P:IsCompleted(id) or P:HasQuest(id) then return nil end
+  local q = DB:Get("quests", id)
+  if not q then return nil end
+  if CV.Availability.Check(id, q) then return id end
+  local before = {}
+  for _, p in ipairs(q.leadIn or {}) do before[#before + 1] = p end
+  local pre = q.prerequisites or {}
+  for _, p in ipairs(pre.all or {}) do before[#before + 1] = p end
+  for _, p in ipairs(pre.any or {}) do before[#before + 1] = p end
+  for _, p in ipairs(before) do
+    local step = Extras.NextPickup(p, seen)
+    if step then return step end
+  end
+end
+
+---Every quest on the way to these: the quests themselves, their lead-ins and their prerequisites,
+---all the way back. A set: questId -> true.
+function Extras.ChainOf(ids)
+  local set = {}
+  local function walk(id)
+    if set[id] then return end
+    set[id] = true
+    local q = DB:Get("quests", id)
+    if not q then return end
+    for _, p in ipairs(q.leadIn or {}) do walk(p) end
+    local pre = q.prerequisites or {}
+    for _, p in ipairs(pre.all or {}) do walk(p) end
+    for _, p in ipairs(pre.any or {}) do walk(p) end
+  end
+  for _, id in ipairs(ids or {}) do walk(id) end
+  return set
+end
+
+---The tracked quest list (a dungeon's, from Oracle) a quest in your log belongs to: its key, or
+---nil. The tracker draws those quests in that list's own section.
+function Extras.SectionOf(questId)
+  if not CV.db.filters.tracking then return nil end
+  for _, e in ipairs(CV.char.tracked) do
+    local pins = e.kind == "quests" and trackedPins[e.key]
+    if pins and pins.members and pins.members[questId] then return e.key end
+  end
+end
+
+---The tracked quest lists, in the order tracked: { entry, ... } (none when tracking is off).
+function Extras.Sections()
+  local out = {}
+  if not CV.db.filters.tracking then return out end
+  for _, e in ipairs(CV.char.tracked) do if e.kind == "quests" then out[#out + 1] = e end end
+  return out
+end
+
 function CV:Untrack(key)
   for i, e in ipairs(self.char.tracked) do
     if e.key == key then table.remove(self.char.tracked, i) break end
@@ -239,6 +366,19 @@ Core.Colors:RegisterInUse("clairvoyance.tracking", function()
   for _, e in ipairs(CV.char and CV.char.tracked or {}) do keys[#keys + 1] = colorKey(e.key) end
   return keys
 end)
+-- tracked quest pickups leave the map as you take them (and the next step of a chain comes on)
+local function pickupsTracked()
+  for _, e in ipairs(CV.char and CV.char.tracked or {}) do if e.kind == "quests" then return true end end
+end
+local pickupsPending
+local function rebuildPickups()
+  if pickupsPending or not pickupsTracked() then return end
+  pickupsPending = true
+  C_Timer.After(.5, function() pickupsPending = nil Extras:RebuildTracking() Extras.DropFinished() end)
+end
+for _, msg in ipairs({ "NORGANNON_QUESTLOG_UPDATED", "NORGANNON_QUEST_TURNED_IN", "NORGANNON_LEVEL_CHANGED" }) do
+  Core:Listen(msg, "clairvoyance.pickups", rebuildPickups)
+end
 Core:Listen("NORGANNON_QUEST_COLOR_CHANGED", "clairvoyance.extras", function(_, key)
   if type(key) == "string" and key:find("^track:") then Extras:Refresh() if Extras.finder and Extras.finder:IsShown() then Extras:FillFinder() end end
 end)
@@ -341,6 +481,77 @@ local function buildEntry(entry)
     end
     sources = { n = shown }
     list.sources = sources.n
+  elseif entry.kind == "quests" then
+    -- one eye per giver, naming what to pick up there (and what it leads to); one tracker row per
+    -- quest to pick up, its arrow on the nearest of its givers
+    local givers, order, pickups, done = {}, {}, {}, true
+    for _, id in ipairs(entry.ids) do
+      if not Core.Player:IsCompleted(id) then done = false end
+      local step = Extras.NextPickup(id)
+      if step then
+        local q = DB:Get("quests", step)
+        local label = Core.DB:Name("quests", step) or ("Quest " .. step)
+        local before = step ~= id and (Core.DB:Name("quests", id) or ("Quest " .. id)) or nil
+        local tip = before and (label .. " (before " .. before .. ")") or label
+        local row
+        for _, r in ipairs(pickups) do if r.step == step then row = r end end
+        if not row then
+          row = { step = step, name = label, before = before, givers = {} }
+          pickups[#pickups + 1] = row
+        end
+        local function addGiver(k, kind, gid, label)
+          if not givers[k] then givers[k] = { kind = kind, id = gid, labels = {} } order[#order + 1] = k end
+          local seen = false
+          for _, l in ipairs(givers[k].labels) do if l == label then seen = true end end
+          if not seen then table.insert(givers[k].labels, label) end
+          row.givers[k] = true
+        end
+        for _, kind in ipairs({ "npcs", "objects" }) do
+          for _, gid in ipairs(q.starters and q.starters[kind] or {}) do
+            if kind == "objects" or friendly((DB:Get("npcs", gid) or {}).reaction) then
+              addGiver(kind .. ":" .. gid, kind, gid, tip)
+            end
+          end
+        end
+        -- a quest that starts from an item (The Essence of Eranikus): whoever drops it
+        for _, item in ipairs(q.starters and q.starters.items or {}) do
+          local itemName = Core.DB:Name("items", item) or ("Item " .. item)
+          row.item = row.item or itemName
+          for _, d in ipairs(Extras.ItemDroppers(item)) do
+            row.from = row.from or Core.DB:Name(d.kind, d.id)
+            addGiver("drop:" .. d.kind .. ":" .. d.id, d.kind, d.id, tip .. " (" .. itemName .. " drops here)")
+          end
+        end
+      end
+    end
+    local byGiver = {}
+    for _, k in ipairs(order) do
+      local g = givers[k]
+      -- each giver is its own highlight group, so a tracker row can light and pulse just its givers
+      local s = setmetatable({ icon = PICKUP_ICON, size = 26, layer = 9, alpha = .85, color = WHITE,
+        highlight = "pickup:" .. entry.key .. ":" .. k, via = "Pick up: " .. table.concat(g.labels, ", ") }, { __index = spec })
+      local from = #list
+      placePins(list, g.kind, g.id, s)
+      byGiver[k] = { from = from + 1, to = #list }
+    end
+    for _, row in ipairs(pickups) do
+      row.pins = {}
+      for k in pairs(row.givers) do
+        local span = byGiver[k]
+        for i = span.from, span.to do row.pins[#row.pins + 1] = list[i] end
+      end
+      row.givers = nil
+      -- an item's quest says where the item comes from
+      if row.item then
+        local inside
+        for _, pin in ipairs(row.pins) do inside = inside or pin.inside end
+        row.how = row.from and string.format("It starts from %s, which %s drops%s.", row.item, row.from,
+          inside and (" in " .. inside) or "") or string.format("It starts from %s.", row.item)
+      end
+    end
+    local left = #pickups
+    list.pickups, list.members, list.done = pickups, Extras.ChainOf(entry.ids), done
+    list.label = left == 0 and "all picked up" or (left == 1 and "1 to pick up" or (left .. " to pick up"))
   elseif entry.kind == "category" then
     local cat = DB.categories[entry.category] or {}
     for _, kind in ipairs({ "npcs", "objects" }) do
@@ -365,6 +576,19 @@ function Extras:RebuildTracking()
   Core.Map:SetPins(OWNER_TRACKING, #all > 0 and all or nil)
   CV:Send("EXTRAS_UPDATED", "tracking")
 end
+
+-- a dungeon's list leaves the tracker once every quest on it is handed in
+local function dropFinished()
+  for i = #CV.char.tracked, 1, -1 do
+    local e = CV.char.tracked[i]
+    local pins = e.kind == "quests" and trackedPins[e.key]
+    if pins and pins.done then
+      CV:Untrack(e.key)
+      CV:Print(e.name .. ": all done. Taken off the tracker.")
+    end
+  end
+end
+Extras.DropFinished = dropFinished
 
 function Extras:TrackedPins(key) return trackedPins[key] or {} end
 
@@ -841,16 +1065,18 @@ local function extraLine(content, i, width)
     GameTooltip:AddLine(self.tipTitle or "", 1, 1, 1)
     if self.tipText then GameTooltip:AddLine(self.tipText, C.muted[1], C.muted[2], C.muted[3]) end
     GameTooltip:AddLine(self.trackKey and "Click: point the arrow at the nearest · Right-click: colour, remove"
+      or self.pickupOf and "Click: show the giver on a map · Right-click: the list's menu"
       or "Click: point the arrow at the nearest", C.faint[1], C.faint[2], C.faint[3])
     GameTooltip:Show()
   end)
   line:SetScript("OnLeave", function() Core.Map:SetHighlight(nil) GameTooltip:Hide() end)
   line:SetScript("OnClick", function(self, button)
     if button == "RightButton" then
-      if self.trackKey then Extras:TrackedMenu(self, self.trackKey) end
+      if self.trackKey or self.pickupOf then Extras:TrackedMenu(self, self.trackKey or self.pickupOf) end
       return
     end
     local near = self.nearest and self.nearest()
+    if self.pickupOf and self.pickup then return Extras.ShowPickup(self.pickup, near, self) end
     if not pointArrow(near, near and near.pin.title) then CV:Print("None of these on this continent.") end
   end)
   lines[i] = line
@@ -863,7 +1089,15 @@ local function yards(d)
 end
 
 local function paint(line)
-  if line.trackKey then
+  if line.pickupOf then
+    local c = Extras.ColorOf(line.pickupOf)
+    line.edge:SetVertexColor(c[1], c[2], c[3])
+    line.edge:SetShown(CV.char.tracker.edges ~= false)
+    line.mark:SetTexture(PICKUP_ICON)
+    line.mark:SetTexCoord(0, 1, 0, 1)
+    line.mark:SetVertexColor(1, 1, 1)
+    line.mark:SetAlpha(1)
+  elseif line.trackKey then
     local c = Extras.ColorOf(line.trackKey)
     line.edge:SetVertexColor(c[1], c[2], c[3])
     line.edge:SetShown(CV.char.tracker.edges ~= false)
@@ -889,13 +1123,91 @@ local function fillDistance(line)
   if line.detail then line.count:SetText(line.detail(near)) end
 end
 
----The groups' rows for the tracker, from y down; returns the new y.
-function Extras:Draw(content, y, width)
+---Shows a quest to pick up on a map: its nearest giver (else its first) on Clairvoyance's pickup
+---map beside tracker row `row` (CV.PickupMap; the row again closes it), the arrow on the giver when
+---it's on this continent, and its pins pulse on your world map once it's open on that zone
+---(Core.Map:Reveal; add-ons never open Blizzard's map, it taints its quest pins). Returns
+---"shown" (the pickup map opened), "closed" (the row again closed it) or nil (no giver known).
+function Extras.ShowPickup(p, near, row)
+  local pin = near and near.pin or (p.pins and p.pins[1])
+  if not pin then
+    -- once a minute per quest: clicking again doesn't repeat the line
+    local t = GetTime()
+    Extras.saidAt = Extras.saidAt or {}
+    if not Extras.saidAt[p.name] or t - Extras.saidAt[p.name] > 60 then
+      Extras.saidAt[p.name] = t
+      CV:Print(p.item and string.format("%s starts from %s; where that drops isn't known yet.", p.name, p.item)
+        or ("Where " .. p.name .. " starts isn't known yet."))
+    end
+    return nil
+  end
+  if row and CV.PickupMap and not CV.PickupMap:Toggle(row, p, pin) then return "closed" end
+  if near then pointArrow(near, "Pick up: " .. p.name) end
+  if Core.Map.Reveal then Core.Map:Reveal(pin.area, pin.highlight) else Core.Map:Pulse(pin.highlight) end
+  local uiMap = Core.Map.AreaToUiMap(pin.area)
+  local info = uiMap and C_Map.GetMapInfo(uiMap)
+  local zone = info and info.name or "its zone"
+  -- your world map, open on another zone, says where to go (CV:SetPickupHint, mapchips.lua)
+  if uiMap and CV.SetPickupHint then
+    CV:SetPickupHint({ key = row and row.pickupOf, step = p.step, name = p.name, giver = pin.title or "the giver",
+      uiMap = uiMap, zone = zone, x = pin.x, y = pin.y, highlight = pin.highlight })
+  end
+  if not row then
+    CV:Print(string.format("%s: %s, %s (%.1f, %.1f).", p.name, pin.title or "the giver", zone, pin.x, pin.y))
+  end
+  return "shown"
+end
+
+local used = 0   -- lines handed out this draw (the pickup rows, then the groups)
+
+---Starts a tracker draw: every line and group label hidden until drawn again.
+function Extras:BeginDraw()
   for _, h in ipairs(groupLabels) do h:Hide() end
   for _, l in ipairs(lines) do l:Hide() end
-  local used, g = 0, 0
+  used = 0
+end
 
-  local tracked = CV.db.filters.tracking and CV.char.tracked or {}
+---A dungeon section's pickup rows (CV:TrackQuests), from y down; returns the new y. Each row is
+---one quest to pick up: hover lights its givers; click shows its giver on Clairvoyance's pickup map
+---beside the row (Extras.ShowPickup), points the arrow at the nearest one on this continent and
+---pulses its pins on your world map once it's open there.
+function Extras:DrawPickups(content, y, width, key)
+  local pins = trackedPins[key]
+  for _, p in ipairs(pins and pins.pickups or {}) do
+    used = used + 1
+    local line = extraLine(content, used, width)
+    local first = p.pins and p.pins[1]
+    line.trackKey, line.pickupOf, line.category, line.highlight = nil, key, nil, first and first.highlight or ("track:" .. key)
+    line.pickup = p
+    if CV.PickupMap then CV.PickupMap:Follow(key, p.step, line) end
+    line.name:SetText(p.name)
+    line.detail = function() return p.before and ("before " .. p.before) or (p.from and ("from " .. p.from)) or "" end
+    line.tipTitle = "Pick up: " .. p.name
+    local parts = {}
+    if p.before then parts[#parts + 1] = "It comes before " .. p.before .. "." end
+    if p.how then parts[#parts + 1] = p.how end
+    line.tipText = #parts > 0 and table.concat(parts, " ") or nil
+    line.nearest = function() return nearestOf(p.pins) end
+    line.remove:Hide()
+    line.dist:ClearAllPoints()
+    line.dist:SetPoint("RIGHT", line, "RIGHT", -8, 0)
+    line:ClearAllPoints()
+    line:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -y)
+    fillDistance(line)
+    line:Show()
+    y = y + 20
+  end
+  return y
+end
+
+---The groups' rows for the tracker, from y down; returns the new y. A dungeon's quest lists are
+---their own sections (the tracker draws them first), so they aren't in Tracking.
+function Extras:Draw(content, y, width)
+  local g = 0
+  local tracked = {}
+  if CV.db.filters.tracking then
+    for _, e in ipairs(CV.char.tracked) do if e.kind ~= "quests" then tracked[#tracked + 1] = e end end
+  end
   if #tracked > 0 then
     g = g + 1
     local h = groupLabel(content, g, width)
@@ -911,12 +1223,12 @@ function Extras:Draw(content, y, width)
       used = used + 1
       local line = extraLine(content, used, width)
       local key = entry.key
-      line.trackKey, line.highlight, line.category = key, "track:" .. key, entry.category
+      line.trackKey, line.pickupOf, line.highlight, line.category = key, nil, "track:" .. key, entry.category
       line.name:SetText(entry.name)
       local pins = Extras:TrackedPins(key)
       local n = pins.sources or #pins
       local unit = pins.sources and (n == 1 and " source" or " sources") or ""
-      line.detail = function() return n > 1 and (pins.sources and (n .. unit) or ("×" .. n)) or "" end
+      line.detail = function() return pins.label or (n > 1 and (pins.sources and (n .. unit) or ("×" .. n)) or "") end
       line.tipTitle, line.tipText = entry.name, KIND_LABEL[entry.kind]
       -- the nearest place with real odds; a faint 0.02% source only when there's nothing else
       line.nearest = function() return Extras.NearestTracked(key) end
@@ -948,7 +1260,7 @@ function Extras:Draw(content, y, width)
       used = used + 1
       local line = extraLine(content, used, width)
       local key = prof.key
-      line.trackKey, line.highlight, line.category = nil, "gather:" .. key, prof.key
+      line.trackKey, line.pickupOf, line.highlight, line.category = nil, nil, "gather:" .. key, prof.key
       markIcon(line.mark, prof.key, true)
       line.name:SetText(prof.noSkill and prof.name or (prof.name .. " " .. rank))
       line.nearest = function()

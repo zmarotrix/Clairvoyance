@@ -193,7 +193,8 @@ local DEFAULTS = {
     hiddenOnMap = {},     -- questId -> true: markers hidden on the map (shift-click)
     notOffered = {},      -- questId -> quest-giver id: the game didn't offer it there (offers.lua)
     tracked = {},         -- track anything: { key, kind, ids | category, name }, in the order added
-    tracker = { collapsed = false, collapsedZones = {}, questView = {} },   -- position, height when set
+    -- collapsedSections: tracked dungeon lists folded in the tracker (entry key -> true)
+    tracker = { collapsed = false, collapsedZones = {}, collapsedSections = {}, questView = {} },   -- position, height when set
     -- useGlobal: this character uses the global settings; welcomed: the welcome was answered
     -- (true) or dismissed twice ("skipped"); welcomeLater: times it was closed without an answer
   },
@@ -389,4 +390,10 @@ CV:OnReady(function() CV:CheckOtherHelpers() end)
 Core:RegisterAction("clairvoyance.track", {
   addon = "clairvoyance", label = "Show on map (Clairvoyance)", kinds = { "npc", "object", "item" },
   run = function(kind, id) if CV.Track then CV:Track(kind, id) end end,
+})
+-- a list of quests (Oracle: an instance's quests): where to pick each one up, or the first quest
+-- before it; spec = { key, name, ids }. Returns true when shown, false when taken off again.
+Core:RegisterAction("clairvoyance.trackquests", {
+  addon = "clairvoyance", label = "Track these quests (Clairvoyance)", kinds = { "quests" },
+  run = function(_, spec) if CV.TrackQuests and type(spec) == "table" then return CV:TrackQuests(spec.key, spec.name, spec.ids) end end,
 })

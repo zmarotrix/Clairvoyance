@@ -161,6 +161,8 @@ local function build(questId)
     id = questId, title = entry.title or (quest and quest.name) or ("Quest " .. questId),
     level = entry.level or (quest and quest.level), complete = entry.complete, logIndex = entry.logIndex,
     zone = quest and quest.zoneOrSort and quest.zoneOrSort > 0 and quest.zoneOrSort or nil,
+    -- below 0: a category instead of a zone (a class, a profession, a holiday); the quest is still known
+    sort = quest and quest.zoneOrSort and quest.zoneOrSort < 0 and quest.zoneOrSort or nil,
     header = entry.header,   -- the game log's header: names the group of quests no database knows
     known = quest ~= nil, objectives = {}, turnins = {}, item = specialItem(entry, quest),
     levelless = CV.Availability and CV.Availability.Levelless(quest) or false,
