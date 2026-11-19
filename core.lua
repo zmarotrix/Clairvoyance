@@ -180,6 +180,7 @@ local DEFAULTS = {
     rewardMark = true,    -- a gold coin on the quest reward that sells for the most
     bagMarks = true,      -- a small mark on bag slots holding an item that's part of a quest
     rareAlert = true,    -- a quiet chat line when a rare shows up on your nameplates
+    tellGroup = true,    -- party chat when you finish an objective or a quest (announce.lua)
     plateMarks = true,   -- a sword or bag (and how many are left) on quest mobs' nameplates
     itemSources = 10,    -- a tracked item shows sources within this many times the best one's tries (0 = all)
     auto = { accept = false, turnin = false, gossip = false },   -- off unless you turn it on

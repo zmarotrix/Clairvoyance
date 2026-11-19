@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.20.0 (2026-11-19)
+
+- **Your party hears how your quests go.** When you finish an objective, party chat gets a line like
+  "{diamond} [Dragonkin Menace] Black Broodling slain 15/15", and when the last one is done, "[Dragonkin Menace] is
+  ready to hand in". Only finished objectives, never every kill, each said once. Never in raids, and quiet while
+  Questie is running, since it says the same. Turn it off with "Tell your party" under Automation.
+
 ## 0.19.0 (2026-11-16)
 
 - **A quest to pick up for a dungeon** (Oracle's Track pickups): clicking its row in the tracker opens a small map

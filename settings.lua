@@ -74,6 +74,9 @@ CV:OnReady(function()
   list:Toggle("Mark the best-selling reward", "With a choice of rewards, a gold coin marks the one worth the most at a vendor. "
     .. "The choice is always yours.",
     function() return CV.db.rewardMark end, function(on) CV.db.rewardMark = on CV.Rewards:Mark() end)
+  list:Toggle("Tell your party", "Says in party chat when you finish an objective, and when a quest is ready to hand in. "
+    .. "Not in raids, and not while Questie already says it.",
+    function() return CV.db.tellGroup ~= false end, function(on) CV.db.tellGroup = on end)
   list:Toggle("Skip gossip", "At an NPC with quests for you, goes straight to the quest (only what the switches above allow).",
     function() return CV.db.auto.gossip end, function(on) CV.db.auto.gossip = on end)
 
