@@ -1,7 +1,7 @@
 -- Telling your party how a quest goes, in party chat, so members without a quest add-on see it too:
 --
---   {diamond} [Dragonkin Menace] Black Broodling slain 15/15     an objective just finished
---   {diamond} [Dragonkin Menace] is ready to hand in             the last one finished
+--   {diamond} Clairvoyance: [Dragonkin Menace] Black Broodling slain 15/15     an objective just finished
+--   {diamond} Clairvoyance: [Dragonkin Menace] is ready to hand in             the last one finished
 --
 -- Only finished objectives, never every kill; only in a party (a raid's chat would drown);
 -- once per objective until the quest leaves your log; changes within half a second are sent
@@ -15,7 +15,7 @@ if CV.disabled then return end
 local Announce = { said = {}, pending = {} }
 CV.Announce = Announce
 
-local ICON = "{rt3}"   -- the purple diamond, Clairvoyance's colour; every client draws it
+local ICON = "{rt3} Clairvoyance:"   -- the purple diamond (every client draws it) and our name
 local WAIT = .5
 
 local function loaded(name)

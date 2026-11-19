@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.20.1 (2026-11-19)
+
+- Party chat lines start with Clairvoyance's name: "{diamond} Clairvoyance: [Dragonkin Menace] Black Broodling slain 15/15".
+
 ## 0.20.0 (2026-11-19)
 
 - **Your party hears how your quests go.** When you finish an objective, party chat gets a line like
