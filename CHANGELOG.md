@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.20.2 (2026-11-21)
+
+- Party chat lines give an objective's count once ("Black Broodling slain 15/15"), not twice.
+
 ## 0.20.1 (2026-11-19)
 
 - Party chat lines start with Clairvoyance's name: "{diamond} Clairvoyance: [Dragonkin Menace] Black Broodling slain 15/15".

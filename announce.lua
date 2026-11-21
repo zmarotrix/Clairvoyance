@@ -39,7 +39,12 @@ end
 
 ---"Black Broodling slain 15/15" from the objective (the game's text ends ": 15/15").
 function Announce.ObjectiveText(o)
-  local text = o.text and o.text:gsub(":%s*%d+%s*/%s*%d+%s*$", "") or o.name
+  -- the game's text carries the count, in front ("15/15 Black Broodling slain") or behind
+  -- ("Black Broodling slain: 15/15"); drop it wherever it is, and add ours at the end
+  local text = o.text or o.name
+  if text then
+    text = text:gsub("^%s*%d+%s*/%s*%d+%s*", ""):gsub(":?%s*%(?%d+%s*/%s*%d+%)?%s*$", "")
+  end
   if not text or text == "" then return nil end
   if o.current and o.required and o.required > 1 then text = text .. " " .. o.current .. "/" .. o.required end
   return text
