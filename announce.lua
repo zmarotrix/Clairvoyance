@@ -2,14 +2,14 @@
 --
 --   {diamond} Clairvoyance: [Dragonkin Menace] Black Broodling slain 7/15    progress    (off)
 --   {diamond} Clairvoyance: [Dragonkin Menace] Black Broodling slain 15/15   objectives  (on)
---   {diamond} Clairvoyance: [Dragonkin Menace] is ready to hand in           quests      (on)
+--   {diamond} Clairvoyance: [Dragonkin Menace] Quest Complete!                quests      (on)
 --   {diamond} Clairvoyance: Picked up [Dragonkin Menace]                     accepted    (off)
 --   {diamond} Clairvoyance: Abandoned [Dragonkin Menace]                     abandoned   (on)
 --
 -- Each kind has its own switch (CV.db.tell), under one main switch (CV.db.tellGroup). Only in a
 -- party (a raid's chat would drown). A finished objective or quest is said once until the quest
 -- leaves your log. Changes within half a second go out as one line per quest, and a quest that
--- just finished says only "ready to hand in" (with that switch on). With Questie running, it
+-- just finished says only "Quest Complete!" (with that switch on). With Questie running, it
 -- says the same, so Clairvoyance stays quiet.
 
 local Core = NorgannonCore
@@ -88,7 +88,7 @@ local function flush(id)
   if q.complete == true and Announce.Wants("quests") then
     if not Announce.said[id .. ":done"] then
       Announce.said[id .. ":done"] = true
-      send(ICON .. " " .. link .. " is ready to hand in")
+      send(ICON .. " " .. link .. " Quest Complete!")
     end
     return
   end

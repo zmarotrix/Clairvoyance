@@ -87,7 +87,7 @@ CV:OnReady(function()
   end
   tell("progress", "Every kill and item", "Each time a count goes up: Black Broodling slain 7/15.")
   tell("objectives", "Finished objectives", "When an objective is done: Black Broodling slain 15/15.")
-  tell("quests", "Finished quests", "When the last objective is done: [Dragonkin Menace] is ready to hand in.")
+  tell("quests", "Finished quests", "When the last objective is done: [Dragonkin Menace] Quest Complete!")
   tell("accepted", "Quests you pick up", "Picked up [Dragonkin Menace].")
   tell("abandoned", "Quests you abandon", "Abandoned [Dragonkin Menace].")
 

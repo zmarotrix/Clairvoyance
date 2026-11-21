@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.21.1 (2026-11-21)
+
+- A finished quest's party line reads "[Dragonkin Menace] Quest Complete!".
+
 ## 0.21.0 (2026-11-21)
 
 - **Pick what your party hears.** A new Party chat section in the settings holds the main switch and one per kind
