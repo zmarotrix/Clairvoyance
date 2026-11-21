@@ -74,11 +74,22 @@ CV:OnReady(function()
   list:Toggle("Mark the best-selling reward", "With a choice of rewards, a gold coin marks the one worth the most at a vendor. "
     .. "The choice is always yours.",
     function() return CV.db.rewardMark end, function(on) CV.db.rewardMark = on CV.Rewards:Mark() end)
-  list:Toggle("Tell your party", "Says in party chat when you finish an objective, and when a quest is ready to hand in. "
-    .. "Not in raids, and not while Questie already says it.",
-    function() return CV.db.tellGroup ~= false end, function(on) CV.db.tellGroup = on end)
   list:Toggle("Skip gossip", "At an NPC with quests for you, goes straight to the quest (only what the switches above allow).",
     function() return CV.db.auto.gossip end, function(on) CV.db.auto.gossip = on end)
+
+  list:Header("Party chat")
+  list:Toggle("Tell your party", "Says in party chat how your quests go, so members without a quest add-on see it too. "
+    .. "Not in raids, and not while Questie already says it. The switches below pick what's said.",
+    function() return CV.db.tellGroup ~= false end, function(on) CV.db.tellGroup = on end)
+  local function tell(kind, label, desc)
+    list:Toggle(label, desc, function() return CV.Announce.Wants(kind) end,
+      function(on) CV.db.tell = CV.db.tell or {} CV.db.tell[kind] = on end)
+  end
+  tell("progress", "Every kill and item", "Each time a count goes up: Black Broodling slain 7/15.")
+  tell("objectives", "Finished objectives", "When an objective is done: Black Broodling slain 15/15.")
+  tell("quests", "Finished quests", "When the last objective is done: [Dragonkin Menace] is ready to hand in.")
+  tell("accepted", "Quests you pick up", "Picked up [Dragonkin Menace].")
+  tell("abandoned", "Quests you abandon", "Abandoned [Dragonkin Menace].")
 
   list:Header("Quest log")
   list:Toggle("Levels in the quest log", "Quest titles start with their level: [12] Cutting Teeth.",

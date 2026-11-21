@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.21.0 (2026-11-21)
+
+- **Pick what your party hears.** A new Party chat section in the settings holds the main switch and one per kind
+  of line: every kill and item (off), finished objectives (on), finished quests (on), quests you pick up (off) and
+  quests you abandon (on). "Abandoned [quest]" is new; a quest you hand in is never called abandoned.
+
 ## 0.20.2 (2026-11-21)
 
 - Party chat lines give an objective's count once ("Black Broodling slain 15/15"), not twice.
