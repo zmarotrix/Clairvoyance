@@ -112,6 +112,9 @@ CV:OnReady(function()
     .. "objectives on the map.",
     function() return CV.db.objectiveRings end,
     function(on) CV.db.objectiveRings = on CV.Pins:Rebuild() CV.Tracker:Layout() end)
+  list:Toggle("Merge nearby dots", "Where a mob was seen many times close together, one bigger dot stands for them all, "
+    .. "instead of a trail or a crowd of small ones.",
+    function() return CV.db.mergeSpawns ~= false end, function(on) CV.db.mergeSpawns = on CV.Pins:Rebuild() end)
   list:Toggle("Turn-ins", "Where to hand quests in.",
     function() return CV.db.filters.turnins end,
     function(on) CV.db.filters.turnins = on CV:Send("FILTERS_CHANGED", "turnins") end)

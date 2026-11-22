@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.22.0 (2026-11-22)
+
+- **Fewer, bigger dots.** Where a mob was seen many times close together, one dot now stands for them all, a little
+  larger the more it covers, instead of a trail or a crowd of small ones. Mount Hyjal goes from about 9,400 dots to
+  1,400. "Merge nearby dots" under Map turns it off.
+
 ## 0.21.1 (2026-11-21)
 
 - A finished quest's party line reads "[Dragonkin Menace] Quest Complete!".

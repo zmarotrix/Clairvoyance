@@ -107,15 +107,59 @@ function Pins.RingOf(m, index)
   return RINGS[(index - 1) % #RINGS + 1]
 end
 
+-- Nearby sightings of one target merged into one dot (setting: mergeSpawns). Positions for new
+-- zones are where players saw a mob, so a wandering bear leaves a trail of hundreds of dots;
+-- merged, each spot within MERGE_REACH (percent of the zone map) of another becomes one dot at
+-- their middle, larger the more it stands for. Cached per spawn list: the data doesn't change.
+local MERGE_REACH = 2.2
+local merged = setmetatable({}, { __mode = "k" })
+
+---{ [area] = { { x, y, count }, ... } } from { [area] = { { x, y }, ... } }.
+function Pins.MergeSpawns(spawns)
+  local done = merged[spawns]
+  if done then return done end
+  done = {}
+  local reach2 = MERGE_REACH * MERGE_REACH
+  for area, points in pairs(spawns) do
+    local spots = {}
+    for _, p in ipairs(points) do
+      local x, y = p[1], p[2]
+      if x and x >= 0 then
+        local into
+        for _, s in ipairs(spots) do
+          local dx, dy = s[1] - x, s[2] - y
+          if dx * dx + dy * dy <= reach2 then into = s break end
+        end
+        if into then
+          local n = into[3] + 1
+          into[1], into[2], into[3] = into[1] + (x - into[1]) / n, into[2] + (y - into[2]) / n, n
+        else
+          spots[#spots + 1] = { x, y, 1 }
+        end
+      end
+    end
+    done[area] = spots
+  end
+  merged[spawns] = done
+  return done
+end
+
+-- a merged dot's size: 7 for one sighting, up to 11 for sixteen or more
+local function mergedSize(count)
+  if count <= 1 then return nil end
+  return 7 + math.min(4, math.floor(math.log(count) / math.log(2)))
+end
+
 local function addTarget(list, target, spec)
   local spawns = spawnsOf(target)
+  if spawns and spec.merge and CV.db.mergeSpawns ~= false then spawns = Pins.MergeSpawns(spawns) end
   local name = CV.Model.TargetName(target)
   for area, points in pairs(spawns or {}) do
     for _, p in ipairs(points) do
       if p[1] and p[1] >= 0 then
         list[#list + 1] = {
-          area = area, x = p[1], y = p[2], icon = spec.icon, quest = spec.quest, layer = spec.layer, size = spec.size,
-          cluster = spec.cluster, compass = spec.compass, title = name, tooltip = spec.tooltip,
+          area = area, x = p[1], y = p[2], icon = spec.icon, quest = spec.quest, layer = spec.layer,
+          size = spec.size or (p[3] and mergedSize(p[3])), cluster = spec.cluster, compass = spec.compass, title = name, tooltip = spec.tooltip,
           objective = spec.objective, onShiftClick = hideQuestPin, shiftHint = "Shift-click: hide this quest on the map",
           overlapKey = spec.overlapKey, minimap = spec.minimap, ring = spec.ring,
         }
@@ -146,7 +190,7 @@ local function buildQuest(questId)
       for _, o in ipairs(m.objectives) do
         if not o.finished then
           local key = "q" .. questId .. ":" .. o.index
-          local spec = { icon = "pin", quest = questId, layer = 3, cluster = key, compass = key, objective = o.index,
+          local spec = { icon = "pin", quest = questId, layer = 3, cluster = key, compass = key, objective = o.index, merge = true,
             tooltip = objectiveTooltip(questId, o.index), ring = Pins.RingOf(m, o.index) }
           for _, target in ipairs(o.targets) do addTarget(objectives, target, spec) end
         end

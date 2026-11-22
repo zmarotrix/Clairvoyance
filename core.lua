@@ -176,6 +176,7 @@ local DEFAULTS = {
     showFarAbove = false,
     questMarksOnMinimap = false,   -- the game draws its own "?" and "!" there
     tooltips = true,
+    mergeSpawns = true,       -- nearby sightings of one mob drawn as one bigger dot (pins.lua)
     objectiveRings = false,   -- each objective's map dots get their own border colour
     rewardMark = true,    -- a gold coin on the quest reward that sells for the most
     bagMarks = true,      -- a small mark on bag slots holding an item that's part of a quest
