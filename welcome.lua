@@ -43,7 +43,7 @@ Welcome.PRESETS = PRESETS
 local AUTO_ROWS = {
   { "accept", "Accept quests", "Not grey ones or ones you hid; hold Shift to pause any of these" },
   { "turnin", "Turn in quests", "Takes the reward when there's only one" },
-  { "gossip", "Skip gossip", "Goes straight to the quest at NPCs with quests for you" },
+  { "gossip", "Go straight to the quest", "Talking to an NPC opens its quest, without clicking it in the chatter" },
 }
 Welcome.AUTO_ROWS = AUTO_ROWS
 

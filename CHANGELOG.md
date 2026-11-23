@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.22.3 (2026-11-22)
+
+- "Skip gossip" is now "Go straight to the quest", and its description says what it does: talking to an NPC opens
+  the quest at once. Without it, Accept quests and Turn in quests wait until you click the quest yourself.
+
 ## 0.22.2 (2026-11-22)
 
 - Objective dots are back to their usual size.

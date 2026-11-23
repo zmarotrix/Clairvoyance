@@ -74,7 +74,9 @@ CV:OnReady(function()
   list:Toggle("Mark the best-selling reward", "With a choice of rewards, a gold coin marks the one worth the most at a vendor. "
     .. "The choice is always yours.",
     function() return CV.db.rewardMark end, function(on) CV.db.rewardMark = on CV.Rewards:Mark() end)
-  list:Toggle("Skip gossip", "At an NPC with quests for you, goes straight to the quest (only what the switches above allow).",
+  list:Toggle("Go straight to the quest", "Talking to an NPC with quests for you opens the quest at once, instead of "
+    .. "the NPC's chatter: a finished one to hand in first, then one to take. Off, the two switches above wait until "
+    .. "you click the quest yourself. It only does what they allow.",
     function() return CV.db.auto.gossip end, function(on) CV.db.auto.gossip = on end)
 
   list:Header("Party chat")
