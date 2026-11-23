@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.22.4 (2026-11-22)
+
+- **Spawn points stay where they are.** Merging nearby dots moved real spawn points in the classic zones to the middle
+  of their neighbours, where no mob stands. It now merges only in WoW Forever's own zones (Mount Hyjal, Riverglades,
+  Shen'dralas, Zephras Isle), where the positions are sightings. Everywhere else each spawn keeps its own dot.
+
 ## 0.22.3 (2026-11-22)
 
 - "Skip gossip" is now "Go straight to the quest", and its description says what it does: talking to an NPC opens

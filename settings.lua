@@ -114,8 +114,8 @@ CV:OnReady(function()
     .. "objectives on the map.",
     function() return CV.db.objectiveRings end,
     function(on) CV.db.objectiveRings = on CV.Pins:Rebuild() CV.Tracker:Layout() end)
-  list:Toggle("Merge nearby dots", "Where a mob was seen many times close together, one dot stands for them all, "
-    .. "instead of a trail or a crowd of small ones.",
+  list:Toggle("Merge nearby dots", "In WoW Forever's own zones, where a mob's positions are where players saw it, "
+    .. "sightings close together show as one dot instead of a trail. Elsewhere every spawn keeps its own dot.",
     function() return CV.db.mergeSpawns ~= false end, function(on) CV.db.mergeSpawns = on CV.Pins:Rebuild() end)
   list:Toggle("Turn-ins", "Where to hand quests in.",
     function() return CV.db.filters.turnins end,

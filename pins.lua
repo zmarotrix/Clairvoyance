@@ -110,8 +110,18 @@ end
 -- Nearby sightings of one target merged into one dot (setting: mergeSpawns). Positions for new
 -- zones are where players saw a mob, so a wandering bear leaves a trail of hundreds of dots;
 -- merged, each spot within MERGE_REACH (percent of the zone map) of another becomes one dot at
--- their middle. Cached per spawn list: the data doesn't change.
+-- their middle. Only in WoW Forever's own zones (uiMap SIGHTING_UIMAP and up, as the generator's
+-- sightings.py decides): everywhere else the points are exact spawns and stay where they are.
+-- Cached per spawn list: the data doesn't change.
 local MERGE_REACH = 2.2
+local SIGHTING_UIMAP = 2000
+
+---Whether an area's positions are sightings (WoW Forever's own zones) rather than exact spawns.
+function Pins.IsSightingArea(area)
+  local uiMap = Core.Map.AreaToUiMap(area)
+  return uiMap ~= nil and uiMap >= SIGHTING_UIMAP
+end
+
 local merged = setmetatable({}, { __mode = "k" })
 
 ---{ [area] = { { x, y, count }, ... } } from { [area] = { { x, y }, ... } }.
@@ -121,24 +131,28 @@ function Pins.MergeSpawns(spawns)
   done = {}
   local reach2 = MERGE_REACH * MERGE_REACH
   for area, points in pairs(spawns) do
-    local spots = {}
-    for _, p in ipairs(points) do
-      local x, y = p[1], p[2]
-      if x and x >= 0 then
-        local into
-        for _, s in ipairs(spots) do
-          local dx, dy = s[1] - x, s[2] - y
-          if dx * dx + dy * dy <= reach2 then into = s break end
-        end
-        if into then
-          local n = into[3] + 1
-          into[1], into[2], into[3] = into[1] + (x - into[1]) / n, into[2] + (y - into[2]) / n, n
-        else
-          spots[#spots + 1] = { x, y, 1 }
+    if not Pins.IsSightingArea(area) then
+      done[area] = points
+    else
+      local spots = {}
+      for _, p in ipairs(points) do
+        local x, y = p[1], p[2]
+        if x and x >= 0 then
+          local into
+          for _, s in ipairs(spots) do
+            local dx, dy = s[1] - x, s[2] - y
+            if dx * dx + dy * dy <= reach2 then into = s break end
+          end
+          if into then
+            local n = into[3] + 1
+            into[1], into[2], into[3] = into[1] + (x - into[1]) / n, into[2] + (y - into[2]) / n, n
+          else
+            spots[#spots + 1] = { x, y, 1 }
+          end
         end
       end
+      done[area] = spots
     end
-    done[area] = spots
   end
   merged[spawns] = done
   return done
