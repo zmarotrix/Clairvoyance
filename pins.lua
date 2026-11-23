@@ -110,7 +110,7 @@ end
 -- Nearby sightings of one target merged into one dot (setting: mergeSpawns). Positions for new
 -- zones are where players saw a mob, so a wandering bear leaves a trail of hundreds of dots;
 -- merged, each spot within MERGE_REACH (percent of the zone map) of another becomes one dot at
--- their middle, larger the more it stands for. Cached per spawn list: the data doesn't change.
+-- their middle. Cached per spawn list: the data doesn't change.
 local MERGE_REACH = 2.2
 local merged = setmetatable({}, { __mode = "k" })
 
@@ -144,11 +144,8 @@ function Pins.MergeSpawns(spawns)
   return done
 end
 
--- a merged dot's size: 7 for one sighting, up to 11 for sixteen or more
-local function mergedSize(count)
-  if count <= 1 then return nil end
-  return 7 + math.min(4, math.floor(math.log(count) / math.log(2)))
-end
+-- every objective dot is one size, merged or not, a touch under the map's default 7
+local OBJECTIVE_DOT = 6
 
 local function addTarget(list, target, spec)
   local spawns = spawnsOf(target)
@@ -159,7 +156,7 @@ local function addTarget(list, target, spec)
       if p[1] and p[1] >= 0 then
         list[#list + 1] = {
           area = area, x = p[1], y = p[2], icon = spec.icon, quest = spec.quest, layer = spec.layer,
-          size = spec.size or (p[3] and mergedSize(p[3])), cluster = spec.cluster, compass = spec.compass, title = name, tooltip = spec.tooltip,
+          size = spec.size, cluster = spec.cluster, compass = spec.compass, title = name, tooltip = spec.tooltip,
           objective = spec.objective, onShiftClick = hideQuestPin, shiftHint = "Shift-click: hide this quest on the map",
           overlapKey = spec.overlapKey, minimap = spec.minimap, ring = spec.ring,
         }
@@ -190,7 +187,7 @@ local function buildQuest(questId)
       for _, o in ipairs(m.objectives) do
         if not o.finished then
           local key = "q" .. questId .. ":" .. o.index
-          local spec = { icon = "pin", quest = questId, layer = 3, cluster = key, compass = key, objective = o.index, merge = true,
+          local spec = { icon = "pin", quest = questId, layer = 3, cluster = key, compass = key, objective = o.index, merge = true, size = OBJECTIVE_DOT,
             tooltip = objectiveTooltip(questId, o.index), ring = Pins.RingOf(m, o.index) }
           for _, target in ipairs(o.targets) do addTarget(objectives, target, spec) end
         end

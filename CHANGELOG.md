@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.22.1 (2026-11-22)
+
+- Objective dots are one size again, merged or not, and a little smaller than before.
+
 ## 0.22.0 (2026-11-22)
 
 - **Fewer, bigger dots.** Where a mob was seen many times close together, one dot now stands for them all, a little
