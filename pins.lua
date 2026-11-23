@@ -144,8 +144,8 @@ function Pins.MergeSpawns(spawns)
   return done
 end
 
--- every objective dot is one size, merged or not, a touch under the map's default 7
-local OBJECTIVE_DOT = 6
+-- every objective dot is one size, merged or not: the map's default
+local OBJECTIVE_DOT = 7
 
 local function addTarget(list, target, spec)
   local spawns = spawnsOf(target)

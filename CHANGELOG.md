@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.22.2 (2026-11-22)
+
+- Objective dots are back to their usual size.
+
 ## 0.22.1 (2026-11-22)
 
 - Objective dots are one size again, merged or not, and a little smaller than before.
