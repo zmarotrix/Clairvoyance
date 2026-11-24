@@ -86,10 +86,13 @@ local function copyAuto(from)
   for k in pairs(NONE) do auto[k] = from and from[k] and true or false end
 end
 
+local CARD = { .13, .105, .08 }   -- a raised card's fill, as UI.Card's, before its accent
+
 local function paint()
+  local accent = UI.Accent("clairvoyance")
   for _, card in ipairs(win.cards) do
     local selected = not keep and card.key == choice
-    card.box:Set(selected and UI.Accent("clairvoyance") or C.lineStrong, C.inset)
+    card.box:Set(selected and accent or nil, UI.Mix(CARD, accent, selected and .16 or .06))
     card.name:SetTextColor(selected and C.text[1] or C.muted[1], selected and C.text[2] or C.muted[2], selected and C.text[3] or C.muted[3])
     card:SetAlpha(keep and .55 or 1)
   end
@@ -146,7 +149,7 @@ local function build()
   win = UI.Window({ name = "ClairvoyanceWelcome", addon = "clairvoyance", title = "Welcome", width = 640, height = 510, footer = true })
   win:SetAccent("clairvoyance")
   local body = win.body
-  local h = UI.Text(body, "title", 22, C.gold)
+  local h = UI.Text(body, "title", 22, UI.AccentText("clairvoyance"))
   h:SetPoint("TOPLEFT", 18, -14)
   h:SetText("How much help would you like?")
   local p = UI.Text(body, "body", 13, C.muted)
@@ -172,7 +175,12 @@ local function build()
     card:SetSize(cardW, 132)
     card:SetPoint("TOPLEFT", 18 + (i - 1) * (cardW + 10), -116)
     card.key = preset.key
-    card.box = UI.Box(card, "BACKGROUND", 0)
+    card.box = UI.SoftBox(card, "BACKGROUND", 0, 6)
+    local gleam = UI.Tex(card, "BACKGROUND", 3)   -- its top edge catches the light, as UI.Card's
+    gleam:SetHeight(1)
+    gleam:SetPoint("TOPLEFT", 6, 0)
+    gleam:SetPoint("TOPRIGHT", -6, 0)
+    gleam:SetColorTexture(1, 1, 1, .07)
     card.tag = UI.Text(card, "body", 11, UI.Accent("clairvoyance"))
     card.tag:SetPoint("TOPLEFT", 10, -8)
     card.tag:SetText(string.upper(preset.tag))

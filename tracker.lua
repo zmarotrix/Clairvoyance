@@ -1140,6 +1140,7 @@ local function build()
   end)
 
   f.scroll = UI.ScrollArea(f)
+  f.scroll.thumb:ApplyAccent(UI.Accent("clairvoyance"))
   f.scroll:SetPoint("TOPLEFT", f.tools, "BOTTOMLEFT", 0, -4)
   f.scroll:SetWidth(WIDTH)
   f.content = f.scroll.content

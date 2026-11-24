@@ -107,6 +107,8 @@ local function buildBar()
   end)
   bar.arrow:SetSize(104, 20)
   bar.arrow:SetPoint("RIGHT", bar.map, "LEFT", -4, 0)
+  -- on Blizzard's quest log, not in a suite window: buttons are the suite's gold there unless told otherwise
+  for _, b in ipairs({ bar.map, bar.arrow }) do b:ApplyAccent(UI.Accent("clairvoyance")) end
   QL.bar = bar
 end
 

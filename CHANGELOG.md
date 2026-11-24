@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.22.5 (2026-11-23)
+
+- **The last outlined boxes match the suite's new windows.** The map's filters, the Finder and the pickup map are
+  rounded panels with a soft shadow and a wash of Clairvoyance's colour. "Pick up" on the world map is a raised pill.
+- The welcome's presets are raised cards; the one you pick fills with the colour.
+- The map's filter chips, the quest log's Show on map and Point arrow, the Finder's search box and the tracker's
+  scrollbar are in Clairvoyance's colour. They were gold or violet.
+- Needs Norgannon Core 1.33 or newer.
+
 ## 0.22.4 (2026-11-22)
 
 - **Spawn points stay where they are.** Merging nearby dots moved real spawn points in the classic zones to the middle

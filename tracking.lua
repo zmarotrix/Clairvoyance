@@ -937,16 +937,23 @@ function Extras:FillFinder()
   finder:SetHeight(28 + 6 + 28 + 6 + math.max(1, shown) * ROW_H + 8)
 end
 
+---Clairvoyance's small panels (this Finder, the map's filters, the pickup map): the suite's recipe for one, as the
+---Norgannon button's list, in Clairvoyance's accent.
+function Extras.DressPanel(frame)
+  local accent = UI.Accent("clairvoyance")
+  UI.Shadow(frame, -8)
+  UI.Round(frame, "BACKGROUND", -4, 10):SetColor(UI.Mix(C.stone, accent, .05))
+  UI.Wash(frame, "BACKGROUND", -3, 10, 60):SetColor(accent, .12)
+  UI.Sheen(frame, "BACKGROUND", -2)
+end
+
 local function buildFinder()
   finder = CreateFrame("Frame", "ClairvoyanceFinder", UIParent)
   finder:SetWidth(FINDER_W)
   finder:SetFrameStrata("DIALOG")
   finder:SetClampedToScreen(true)
   finder:EnableMouse(true)
-  finder.bg = UI.Round(finder, "BACKGROUND", 0, 8)
-  finder.bg:SetColor({ .04, .032, .022 }, .96)
-  finder.outline = UI.Round(finder, "BACKGROUND", 2, 8, "line")
-  finder.outline:SetColor(VIOLET, .45)
+  Extras.DressPanel(finder)
   finder.mark = UI.Mark(finder, "clairvoyance", 18)
   finder.mark:SetPoint("TOPLEFT", 8, -6)
   finder.title = UI.Text(finder, "body", 12, C.muted)
@@ -961,7 +968,7 @@ local function buildFinder()
     local first = finder.rows[1]
     if first and first:IsShown() then first:Click() end
   end)
-  finder.search:ApplyAccent(VIOLET)
+  finder.search:ApplyAccent(UI.Accent("clairvoyance"))
   finder.search:SetPoint("TOPLEFT", 8, -32)
   finder.search:SetPoint("TOPRIGHT", -8, -32)
   finder.empty = UI.Text(finder, "body", 12, C.faint)
