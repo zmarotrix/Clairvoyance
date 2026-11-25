@@ -25,6 +25,7 @@ local MAX_COULD = 4      -- quests you could take, listed on an item's tooltip b
 -------------------------------------------------------------------------------------------
 
 local objectivesOf, turninsOf, dirty = {}, {}, true
+local marked, checked = {}, {}   -- objectives with sources beyond their targets; entities looked up in them
 
 local function add(map, kind, id, value)
   map[kind] = map[kind] or {}
@@ -33,13 +34,16 @@ local function add(map, kind, id, value)
 end
 
 local function rebuild()
-  objectivesOf, turninsOf = {}, {}
+  objectivesOf, turninsOf, marked, checked = {}, {}, {}, {}
   for _, m in ipairs(CV.Model:List()) do
     for _, o in ipairs(m.objectives) do
       if o.kind == "items" and o.entity then add(objectivesOf, "items", o.entity, { m.id, o.index }) end
       for _, t in ipairs(o.targets) do
         if t.kind == "npcs" or t.kind == "objects" then add(objectivesOf, t.kind, t.id, { m.id, o.index }) end
       end
+    end
+    for _, o in ipairs(m.objectives) do
+      if o.marks and next(o.marks) then marked[#marked + 1] = { m.id, o.index, o.marks } end
     end
     for _, t in ipairs(m.turnins) do add(turninsOf, t.kind, t.id, m.id) end
   end
@@ -51,6 +55,13 @@ CV:Listen("MODEL_UPDATED", "tooltips", function() dirty = true end)
 ---The objectives an NPC, object or item takes part in: { {questId, objectiveIndex}, ... }.
 function Tips.ObjectivesFor(kind, id)
   if dirty then rebuild() end
+  -- a common drop has hundreds of sources: each is looked up when it's met, not all put in the index
+  if #marked > 0 and not checked[kind .. id] then
+    checked[kind .. id] = true
+    for _, e in ipairs(marked) do
+      if e[3][kind] and e[3][kind][id] then add(objectivesOf, kind, id, { e[1], e[2] }) end
+    end
+  end
   return (objectivesOf[kind] or {})[id] or {}
 end
 
@@ -100,7 +111,7 @@ function Tips:AddLines(tt, kind, id, seen, game)
 
   -- your quests: header in the quest's colour, the objective, then each party member's progress
   local headed = {}
-  for _, hit in ipairs((objectivesOf[kind] or {})[id] or {}) do
+  for _, hit in ipairs(Tips.ObjectivesFor(kind, id)) do
     local questId, index = hit[1], hit[2]
     local m = CV.Model:Get(questId)
     local o = m and m.objectives[index]

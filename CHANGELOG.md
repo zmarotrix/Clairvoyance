@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.23.1 (2026-11-25)
+
+- **Items that drop in many places show the mobs near you.** Only the four likeliest sources in the whole world were
+  marked, so Pie for Billy pointed at boars far from Elwynn. Sources are now picked zone by zone, and all the likely
+  ones in the quest's own zone count. Tooltips and nameplates know them too.
+
 ## 0.23.0 (2026-11-25)
 
 - **Copy from another character.** The welcome and the settings can start a character from what another of yours uses:

@@ -14,7 +14,15 @@ if CV.disabled then return end
 local Model = { quests = {} }
 CV.Model = Model
 
-local MAX_ITEM_SOURCES = 4   -- an item objective shows its most likely sources
+-- Which of an item's sources (who drops, holds or sells it) an item objective shows: chosen zone by
+-- zone, so the boars by the quest giver count although boars elsewhere drop more.
+local BEST_SOURCES = 4     -- the likeliest anywhere always show
+local WORLD_DROP = 40      -- with more sources than this, a zone other than the quest's shows its best ZONE_SOURCES
+local ZONE_SOURCES = 4
+local ZONE_WITHIN = 10     -- at most this many times the tries of the zone's best source
+local WORLD_WITHIN = 100   -- and, outside the quest's zone, of the best anywhere
+local MIN_CHANCE = 1       -- percent: below it (outside the quest's zone) only the likeliest anywhere
+local MARK_WITHIN = 30     -- tooltips and nameplates: also sources this close to the best, wherever they are
 
 -------------------------------------------------------------------------------------------
 -- Targets: where an objective happens
@@ -22,24 +30,73 @@ local MAX_ITEM_SOURCES = 4   -- an item objective shows its most likely sources
 
 -- target = { kind = "npcs" | "objects", id } or { kind = "spawns", spawns = SpawnList, name }
 
-local function itemSources(itemId)
-  local item = DB:Get("items", itemId)
+-- { [uiMap (or area, without one)] = true } of where a source is
+local function zonesOf(kind, id)
+  local record = DB:Get(kind, id)
   local out = {}
-  if not item then return out end
+  for area, points in pairs(record and record.spawns or {}) do
+    for _, p in ipairs(points) do
+      if p[1] and p[1] >= 0 then out[Core.Map.AreaToUiMap(area) or area] = true break end
+    end
+  end
+  return out
+end
+
+local function within(chance, best, times)
+  return not chance or chance <= 0 or not best or chance * times >= best
+end
+
+---An item's sources for a quest: the targets to show, and the NPCs and objects beyond them that
+---drop it often enough to say so on their tooltip and nameplate ({ npcs = { [id] = true }, ... }).
+---home: the uiMap of the quest's zone, if it has one.
+local function itemSources(itemId, home)
+  local item = DB:Get("items", itemId)
+  local out, marks = {}, {}
+  if not item then return out, marks end
   local sources = {}
   for npc, chance in pairs(item.drops and item.drops.npcs or {}) do sources[#sources + 1] = { "npcs", npc, chance } end
   for obj, chance in pairs(item.drops and item.drops.objects or {}) do sources[#sources + 1] = { "objects", obj, chance } end
-  for npc in pairs(item.vendors or {}) do sources[#sources + 1] = { "npcs", npc, 100 } end
+  local best
+  for _, s in ipairs(sources) do if s[3] and s[3] > 0 and (not best or s[3] > best) then best = s[3] end end
+  for npc in pairs(item.vendors or {}) do sources[#sources + 1] = { "npcs", npc, 100, vendor = true } end
   -- unknown chances (0) sort after known ones; ties by id for a stable order
   table.sort(sources, function(a, b)
     if (a[3] or 0) ~= (b[3] or 0) then return (a[3] or 0) > (b[3] or 0) end
     return a[2] < b[2]
   end)
-  for i = 1, math.min(MAX_ITEM_SOURCES, #sources) do
-    out[#out + 1] = { kind = sources[i][1], id = sources[i][2], chance = sources[i][3] }
+  local byZone = {}
+  for i, s in ipairs(sources) do
+    if i <= BEST_SOURCES then s.shown = true end
+    for zone in pairs(zonesOf(s[1], s[2])) do
+      local here = byZone[zone] or {}
+      byZone[zone] = here
+      here[#here + 1] = s
+    end
   end
-  return out
+  for zone, here in pairs(byZone) do
+    local zoneBest, left = nil, (zone ~= home and #sources > WORLD_DROP) and ZONE_SOURCES or #here
+    for _, s in ipairs(here) do   -- likeliest first
+      local chance = not s.vendor and s[3] or nil
+      if chance and chance > 0 and not zoneBest then zoneBest = chance end
+      local enough = within(chance, zoneBest, ZONE_WITHIN)
+        and (zone == home or (within(chance, best, WORLD_WITHIN) and (not chance or chance <= 0 or chance >= MIN_CHANCE)))
+      if enough and left > 0 then
+        s.shown = true
+        left = left - 1
+      end
+    end
+  end
+  for _, s in ipairs(sources) do
+    if s.shown then
+      out[#out + 1] = { kind = s[1], id = s[2], chance = s[3] }
+    elseif not s.vendor and s[3] and s[3] >= MIN_CHANCE and within(s[3], best, MARK_WITHIN) then
+      marks[s[1]] = marks[s[1]] or {}
+      marks[s[1]][s[2]] = true
+    end
+  end
+  return out, marks
 end
+Model.ItemSources = itemSources
 
 local function useItemTargets(objectives, itemId)
   local out = {}
@@ -86,14 +143,17 @@ end
 local function targetsFor(quest, i, live)
   local objectives = quest and quest.objectives or {}
   local kind, entry = databaseObjective(objectives, i)
-  local targets = {}
+  local targets, marks = {}, nil
   if kind == "npcs" or kind == "objects" then
     targets[1] = { kind = kind, id = entry.id }
   elseif kind == "killCredit" then
     for _, npc in ipairs(entry.npcs or {}) do targets[#targets + 1] = { kind = "npcs", id = npc } end
   elseif kind == "items" then
     targets = useItemTargets(objectives, entry.id)
-    if #targets == 0 then targets = itemSources(entry.id) end
+    if #targets == 0 then
+      local zone = quest.zoneOrSort
+      targets, marks = itemSources(entry.id, zone and zone > 0 and (Core.Map.AreaToUiMap(zone) or zone) or nil)
+    end
   end
   -- event and log objectives ("Explore ...", "Use ... on ..."): the quest's places and use targets
   if #targets == 0 and live and (live.type == "event" or live.type == "log" or not kind) then
@@ -102,7 +162,7 @@ local function targetsFor(quest, i, live)
       for _, t in ipairs(useItemTargets(objectives, itemId)) do targets[#targets + 1] = t end
     end
   end
-  return targets, kind, entry and (entry.id or entry.credit)
+  return targets, kind, entry and (entry.id or entry.credit), marks
 end
 
 -------------------------------------------------------------------------------------------
@@ -133,7 +193,7 @@ end
 -- Where each objective happens comes from the database, not from progress, so it is worked out
 -- once per quest and objective and kept while the quest is in the log (every kill and loot
 -- rebuilds the quest; an item's drop sources would be gathered and sorted again each time).
--- questId -> { [i] = { type, targets, kind, entity } }
+-- questId -> { [i] = { type, targets, kind, entity, marks } }
 local targetCache = {}
 Model.targetCache = targetCache
 
@@ -144,10 +204,10 @@ local function cachedTargets(questId, quest, i, live)
     targetCache[questId] = byIndex
   end
   local hit = byIndex[i]
-  if hit and hit[1] == live.type then return hit[2], hit[3], hit[4] end
-  local targets, kind, entity = targetsFor(quest, i, live)
-  byIndex[i] = { live.type, targets, kind, entity }
-  return targets, kind, entity
+  if hit and hit[1] == live.type then return hit[2], hit[3], hit[4], hit[5] end
+  local targets, kind, entity, marks = targetsFor(quest, i, live)
+  byIndex[i] = { live.type, targets, kind, entity, marks }
+  return targets, kind, entity, marks
 end
 
 local function build(questId)
@@ -169,10 +229,11 @@ local function build(questId)
     party = Core.Comms and Core.Comms:GetParty(questId) or {},
   }
   for i, live in ipairs(entry.objectives) do
-    local targets, kind, entity = cachedTargets(questId, quest, i, live)
+    local targets, kind, entity, marks = cachedTargets(questId, quest, i, live)
     m.objectives[i] = {
       index = i, text = live.text, name = live.name, type = live.type, current = live.current,
       required = live.required, finished = live.finished, kind = kind, entity = entity, targets = targets,
+      marks = marks,   -- item objectives: likely sources beyond the targets (tooltips, nameplates)
     }
   end
   local finishers = quest and quest.finishers or {}
