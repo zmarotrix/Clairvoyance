@@ -3,7 +3,7 @@
 -- and the four automation switches. "Start questing" applies them once; after that the settings
 -- are yours to change ("Decide later" asks again next login; /clair welcome runs it again).
 -- Choosing All characters when global settings exist uses them as they are, unless you pick a
--- preset to replace them.
+-- preset to replace them. "Copy from" starts from what another of your characters uses.
 --
 --   Simple      your quests only: tracker (compact), tooltips, objective and turn-in pins. No
 --               available quests, compass, gathering, rares or automation
@@ -80,6 +80,7 @@ end
 local win
 local choice, auto = "balanced", {}
 local scope, keep = "char", false   -- keep: use the existing global settings as they are
+local source                        -- the other character whose settings to use, instead of a preset
 
 local function copyAuto(from)
   auto = {}
@@ -91,15 +92,19 @@ local CARD = { .13, .105, .08 }   -- a raised card's fill, as UI.Card's, before 
 local function paint()
   local accent = UI.Accent("clairvoyance")
   for _, card in ipairs(win.cards) do
-    local selected = not keep and card.key == choice
+    local selected = not keep and not source and card.key == choice
     card.box:Set(selected and accent or nil, UI.Mix(CARD, accent, selected and .16 or .06))
     card.name:SetTextColor(selected and C.text[1] or C.muted[1], selected and C.text[2] or C.muted[2], selected and C.text[3] or C.muted[3])
-    card:SetAlpha(keep and .55 or 1)
+    card:SetAlpha((keep or source) and .55 or 1)
   end
   for _, row in ipairs(win.rows) do row.toggle:SetOn(auto[row.key], true) end
   win.scope:Select(scope, true)
   local exists, from = CV:GlobalSettings()
-  if scope == "char" then
+  if source then
+    win.scopeNote:SetText("Starts from " .. source.name .. "'s settings"
+      .. (scope == "global" and (exists and ", replacing your global settings." or ", as new global settings.") or ".")
+      .. " Pick a preset to use that instead.")
+  elseif scope == "char" then
     win.scopeNote:SetText("Settings just for this character. You can switch to global ones later in the settings.")
   elseif keep then
     win.scopeNote:SetText("Global settings already exist" .. (from and (" (set up on " .. from .. ")") or "")
@@ -108,10 +113,14 @@ local function paint()
     win.scopeNote:SetText(exists and "This preset will replace your global settings for every character that uses them."
       or "New global settings, shared by every character that picks All characters.")
   end
-  win.start.label:SetText(keep and "Use global settings" or "Start questing")
+  win.start.label:SetText(source and "Use these settings" or keep and "Use global settings" or "Start questing")
 end
 
 local function pick(key)
+  if source then
+    source = nil
+    win.copy:Reload()
+  end
   choice, keep = key, false
   copyAuto(presetByKey(key).auto)
   paint()
@@ -119,6 +128,7 @@ end
 
 local function setScope(value)
   scope = value
+  if source then return paint() end   -- another character's settings can go into either
   local exists = CV:GlobalSettings()
   if scope == "global" and exists then
     keep = true
@@ -130,13 +140,20 @@ local function setScope(value)
   paint()
 end
 
----Answers the welcome: the scope, then the preset (or the global settings as they are).
+local function pickCharacter(record)
+  source, keep = record, false
+  copyAuto(type(record.data.settings) == "table" and record.data.settings.auto)
+  paint()
+end
+
+---Answers the welcome: the scope, then the preset (or another character's settings, or the global ones as they are).
 function Welcome.Finish()
   Welcome.finished = true
   CV.charData.welcomed = true      -- first: whatever happens below, the question was answered
   CV.charData.welcomeLater = nil
   if scope == "global" then CV:UseGlobal(true) elseif CV:UsesGlobal() then CV:UseGlobal(false) end
-  if keep then
+  if source then CV:CopySettings(source) end
+  if source or keep then
     for k in pairs(NONE) do CV.db.auto[k] = auto[k] and true or false end
     CV.charData.welcomed = true
     CV:SettingsChanged()
@@ -163,6 +180,12 @@ local function build()
   win.scope = UI.Segmented(body, { { key = "char", label = "This character" }, { key = "global", label = "All characters" } }, setScope)
   win.scope:ApplyAccent(UI.Accent("clairvoyance"))
   win.scope:SetPoint("LEFT", label, "RIGHT", 10, 0)
+  -- or what another of your characters uses
+  win.copy = UI.CopyFrom(body, "clairvoyance", pickCharacter)
+  win.copy:SetPoint("RIGHT", body, "TOPRIGHT", -18, -74)
+  win.copyLabel = UI.Text(body, "body", 14, C.text)
+  win.copyLabel:SetPoint("RIGHT", win.copy, "LEFT", -8, 0)
+  win.copyLabel:SetText("Copy from")
   win.scopeNote = UI.Text(body, "body", 12, C.faint)
   win.scopeNote:SetPoint("TOPLEFT", label, "BOTTOMLEFT", 0, -10)
   win.scopeNote:SetWidth(640 - 36)
@@ -247,7 +270,8 @@ end
 function Welcome:Show()
   if not win then build() end
   Welcome.finished = false
-  scope, keep = CV:UsesGlobal() and "global" or "char", false
+  scope, keep, source = CV:UsesGlobal() and "global" or "char", false, nil
+  win.copy:Reload()
   choice = (presetByKey(CV.db.preset) or PRESETS[2]).key
   copyAuto(CV.db.auto)
   paint()
@@ -255,6 +279,7 @@ function Welcome:Show()
 end
 Welcome.SetScope = function(value) setScope(value) end
 Welcome.Pick = function(key) pick(key) end
+Welcome.PickCharacter = function(record) pickCharacter(record) end
 
 -- first run, per character. A reload never brings it back after "later"; a fresh login asks
 -- once more (PLAYER_ENTERING_WORLD says which it was).

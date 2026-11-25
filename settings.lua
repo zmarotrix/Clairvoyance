@@ -19,6 +19,10 @@ CV:OnReady(function()
     { { "char", "This character" }, { "global", "All characters" } },
     function() return CV:UsesGlobal() and "global" or "char" end,
     function(v) CV:UseGlobal(v == "global") end)
+  list:CopyFrom("clairvoyance", "Start again from what one of your other characters uses. This character's quests, hidden "
+    .. "marks and tracked things stay.", function(record)
+      if CV:CopySettings(record) then CV:Print("Using " .. record.name .. "'s settings.") end
+    end)
 
   list:Header("Quest tracker")
   list:Toggle("Show the quest tracker", "Blizzard's tracker is hidden while Clairvoyance's is on.",

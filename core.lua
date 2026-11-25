@@ -8,7 +8,7 @@ local DB = NorgannonDB
 
 if not (Core and Core.NewAddon) then
   Clairvoyance = { disabled = true }
-  print("Clairvoyance needs Norgannon Core 1.33 or newer; it is turned off.")
+  print("Clairvoyance needs Norgannon Core 1.37 or newer; it is turned off.")
   return
 end
 
@@ -20,7 +20,7 @@ local CV = Clairvoyance
 -- player is in the world. A click shows or hides the tracker, Shift-click opens Track anything, right-click settings;
 -- /clair alone opens settings, as it always has. Messages inside it are CLAIRVOYANCE_* (CV:Send, CV:Listen).
 Core:NewAddon("clairvoyance", {
-  folder = ADDON, api = { 1, 33 }, data = { 1, 2 }, ownLoad = true,
+  folder = ADDON, api = { 1, 37 }, data = { 1, 2 }, ownLoad = true,
   slash = { "/clair", "/clairvoyance", "/cv" },
   commands = {
     [""] = function() CV:OpenSettings() end,
@@ -161,7 +161,7 @@ end
 -- (ClairvoyanceCharDB.useGlobal). Character data always stays with the character: tracked
 -- things, hidden quests, the tracker's position, length and collapsed quests.
 --
---   ClairvoyanceDB      = { global = settings | nil, globalFrom = "Name", legacy = 0.1 account settings }
+--   ClairvoyanceDB      = { characters = each one's copy for the others (Core:ShareSettings), global = settings | nil, globalFrom = "Name", legacy = 0.1 account settings }
 --   ClairvoyanceCharDB  = { settings, useGlobal, welcomed, hidden, hiddenOnMap, notOffered, tracked, tracker = layout }
 --
 -- CV.db is the settings in use; CV.char the character's data. CV.char.tracker reads and writes
@@ -306,6 +306,37 @@ function CV:UseGlobal(on)
   end
   bind(account, char)
   self:SettingsChanged()
+end
+
+-- What a character leaves for the account's others: the settings in use, and where its tracker is.
+Core:ShareSettings("clairvoyance", {
+  store = function() return CV.account end,
+  get = function()
+    if not (CV.db and CV.charData) then return nil end
+    local t = CV.charData.tracker
+    return { settings = CV.db, position = t and t.position, height = t and t.height }
+  end,
+})
+
+---Uses another character's settings (a record of Core.CharSettings:Others) in place of the ones in use: this character's
+---own, or the global ones if it uses those. Its quests, hidden marks and tracked things stay its own.
+function CV:CopySettings(record)
+  local account, char, data = self.account, self.charData, record.data
+  if type(data.settings) ~= "table" then return false end
+  local new = copy(data.settings)
+  if char.useGlobal and account.global then
+    account.global, account.globalFrom = new, UnitName("player")
+  else
+    char.settings = new
+  end
+  local t = char.tracker
+  t.questView = {}
+  if type(data.position) == "table" then t.position = copy(data.position) end
+  t.height = type(data.height) == "number" and data.height or nil
+  bind(account, char)
+  self:SettingsChanged()
+  if self.Tracker then self.Tracker:Place() end
+  return true
 end
 
 ---Everything re-reads the settings in use (after a switch or a preset).

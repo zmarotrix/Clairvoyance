@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.23.0 (2026-11-25)
+
+- **Copy from another character.** The welcome and the settings can start a character from what another of yours uses:
+  its settings, and where its tracker is. Characters are listed once each has logged in with this version.
+- Needs Norgannon Core 1.37 or newer.
+
 ## 0.22.5 (2026-11-23)
 
 - **The last outlined boxes match the suite's new windows.** The map's filters, the Finder and the pickup map are

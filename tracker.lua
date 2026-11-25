@@ -1027,12 +1027,15 @@ local function savePosition()
 end
 Tracker.SavePosition = savePosition
 
-local function build()
-  f = CreateFrame("Frame", "ClairvoyanceTracker", UIParent)
-  f:SetWidth(WIDTH)
-  f:SetFrameStrata("MEDIUM")
-  f:SetClampedToScreen(true)
-  f:SetMovable(true)
+---Puts the tracker where this character has it (again, when that came from another character). Quest item buttons can
+---make it protected, so in combat it waits.
+function Tracker:Place()
+  if not f then return end
+  if InCombatLockdown() then
+    Core:AfterCombat(function() Tracker:Place() end, "clairvoyance.place")
+    return
+  end
+  f:ClearAllPoints()
   local pos = CV.char.tracker.position
   if pos and pos.point then
     f:SetPoint(pos.point, UIParent, pos.relativePoint or pos.point, pos.x or 0, pos.y or 0)
@@ -1040,6 +1043,15 @@ local function build()
   else
     f:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", -70, -250)
   end
+end
+
+local function build()
+  f = CreateFrame("Frame", "ClairvoyanceTracker", UIParent)
+  f:SetWidth(WIDTH)
+  f:SetFrameStrata("MEDIUM")
+  f:SetClampedToScreen(true)
+  f:SetMovable(true)
+  Tracker:Place()
   f:SetScale(CV.char.tracker.scale or 1)
 
   local head = CreateFrame("Frame", nil, f)
